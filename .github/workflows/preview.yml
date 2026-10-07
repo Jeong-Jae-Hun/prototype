@@ -1,0 +1,122 @@
+# 프로토타입 미리보기 — prototypes/** 를 gh-pages 브랜치에 올리고 PR 에 링크를 단다.
+#
+#   PR 열림·커밋  → gh-pages/pr-<번호>/   (그 PR 기준 목록 + 각 프로토타입)
+#   PR 닫힘       → gh-pages/pr-<번호>/ 삭제
+#   main push     → gh-pages/ 루트        (확정본 목록 + 각 프로토타입)
+#
+# 목록 페이지는 scripts/hub.cjs 가 각 SPEC.md 머리에서 만든다. SPEC.md 자체는 올리지 않는다.
+name: preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    paths: ["prototypes/**", "scripts/hub.cjs"]
+  push:
+    branches: [main]
+    paths: ["prototypes/**", "scripts/hub.cjs"]
+
+# gh-pages 에 쓰는 잡은 한 줄로 세운다 — 동시에 push 하면 한쪽이 거절된다.
+# 닫힘 정리가 취소되면 미리보기가 남으므로 취소하지 않는다.
+concurrency:
+  group: gh-pages
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  deploy:
+    # 포크 PR 은 gh-pages 에 쓸 권한이 없다 — 같은 레포 브랜치만.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # PR 은 머지 커밋(기본값)을 본다 — "합친 뒤 모습"이 미리보기다.
+      - uses: actions/checkout@v7
+        with:
+          path: src
+
+      - uses: actions/checkout@v7
+        with:
+          ref: gh-pages
+          path: site
+
+      - name: 허브 테스트
+        if: github.event.action != 'closed'
+        run: node --test src/scripts/hub.test.cjs
+
+      - name: gh-pages 갱신
+        env:
+          EVENT: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          PR: ${{ github.event.pull_request.number }}
+          SPEC_REF: ${{ github.event.pull_request.head.sha || 'main' }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          SPEC_PREFIX="https://github.com/$REPO/blob/$SPEC_REF/prototypes"
+          if [ "$ACTION" = closed ]; then
+            rm -rf "site/pr-$PR"
+          elif [ "$EVENT" = push ]; then
+            node src/scripts/hub.cjs src/prototypes "확정본" "" "$SPEC_PREFIX" > src/prototypes/index.html
+            # 루트에는 PR 미리보기 폴더·도메인 파일이 같이 산다 — --delete 가 그걸 지우지 않게 보호한다.
+            rsync -a --delete --exclude '*.md' --exclude '_*' \
+              --filter 'P pr-*/' --filter 'P CNAME' --filter 'P .nojekyll' --filter 'P .git' \
+              src/prototypes/ site/
+          else
+            node src/scripts/hub.cjs src/prototypes "PR #$PR 미리보기" "" "$SPEC_PREFIX" > src/prototypes/index.html
+            mkdir -p "site/pr-$PR"
+            rsync -a --delete --exclude '*.md' --exclude '_*' src/prototypes/ "site/pr-$PR/"
+          fi
+          echo prototype.dotdotslash.me > site/CNAME
+          touch site/.nojekyll
+
+          cd site
+          git add -A
+          if git diff --cached --quiet; then echo "변경 없음"; exit 0; fi
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com \
+            commit -q -m "preview: ${EVENT}${PR:+ #$PR} ${ACTION}"
+          git push -q origin gh-pages
+
+      - name: PR 코멘트
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const MARK = "<!-- proto-preview -->";
+            const pr = context.payload.pull_request;
+            const { owner, repo } = context.repo;
+            const closed = context.payload.action === "closed";
+            const base = `https://prototype.dotdotslash.me/pr-${pr.number}`;
+
+            const files = await github.paginate(github.rest.pulls.listFiles, { owner, repo, pull_number: pr.number, per_page: 100 });
+            const slugs = [...new Set(
+              files
+                .filter((f) => f.status !== "removed")
+                .map((f) => f.filename.split("/"))
+                .filter((p) => p[0] === "prototypes" && p.length > 2 && !p[1].startsWith("_"))
+                .map((p) => p[1]),
+            )].sort();
+            const row = (s) =>
+              `| \`${s}\` | ${base}/${s}/ | [SPEC.md](https://github.com/${owner}/${repo}/blob/${pr.head.sha}/prototypes/${s}/SPEC.md) |`;
+
+            const body = closed
+              ? `${MARK}\n### 프로토타입 미리보기\nPR이 닫혀 미리보기를 지웠다.${pr.merged ? " 확정본: https://prototype.dotdotslash.me/" : ""}`
+              : [
+                  MARK,
+                  "### 프로토타입 미리보기",
+                  `커밋 \`${pr.head.sha.slice(0, 7)}\` 기준 · 반영까지 1~2분 (GitHub Pages 캐시 최대 10분)`,
+                  `전체 목록: ${base}/ · 확정본: https://prototype.dotdotslash.me/`,
+                  "",
+                  ...(slugs.length
+                    ? ["| 프로토타입 | 미리보기 | 명세 |", "|---|---|---|", ...slugs.map(row)]
+                    : ["이 PR에는 미리보기할 프로토타입 폴더가 없다(`_`로 시작하는 폴더는 제외)."]),
+                  "",
+                  "확정 = 명세의 담당(기획·디자인·개발)이 각자 Approve → 머지. 프로토타입과 명세가 어긋나면 명세가 맞다.",
+                ].join("\n");
+
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: pr.number, per_page: 100 });
+            const mine = comments.find((c) => c.body?.startsWith(MARK));
+            if (mine) await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body });
+            else if (!closed) await github.rest.issues.createComment({ owner, repo, issue_number: pr.number, body });

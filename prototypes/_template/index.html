@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>프로토타입</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <style>
+    body { margin: 0; font-family: Pretendard, system-ui, sans-serif; background: #0b0b10; color: #f4f4f6; }
+    #view { position: sticky; top: 0; display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 16px; background: #1b1b24; font-size: 13px; }
+    main { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <!-- 보기 전환 — 명세의 권한 표·상태 변화 표를 눈으로 대조하는 장치. 프로토타입 화면의 일부가 아니다. -->
+  <div id="view">
+    <label>역할 <select id="role"></select></label>
+    <label>상태 <select id="state"></select></label>
+  </div>
+
+  <main>
+    <!-- 정상 시나리오만. 규칙·예외는 SPEC.md 에 쓴다. 실데이터 금지. -->
+    <!-- 역할별로 다른 요소: data-roles="owner admin" / 상태별: data-states="open" -->
+  </main>
+
+  <script>
+    // 숫자는 여기 한 곳 — SPEC.md 「숫자」 절과 같은 값.
+    const NUM = {};
+    const ROLES = { guest: "비로그인", self: "본인", other: "타인", owner: "채널 주인", admin: "운영자" };
+    const STATES = { initial: "처음" };
+
+    const view = { role: "self", state: "initial" };
+    const fill = (el, opts, cur) => {
+      el.innerHTML = Object.entries(opts).map(([v, t]) => `<option value="${v}"${v === cur ? " selected" : ""}>${t}</option>`).join("");
+    };
+    const render = () => {
+      document.querySelectorAll("[data-roles]").forEach((el) => { el.hidden = !el.dataset.roles.split(" ").includes(view.role); });
+      document.querySelectorAll("[data-states]").forEach((el) => { el.hidden = !el.dataset.states.split(" ").includes(view.state); });
+    };
+    fill(role, ROLES, view.role);
+    fill(state, STATES, view.state);
+    role.onchange = () => { view.role = role.value; render(); };
+    state.onchange = () => { view.state = state.value; render(); };
+    render();
+  </script>
+</body>
+</html>
