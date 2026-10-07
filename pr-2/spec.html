@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>명세</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/15.0.7/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.2.4/purify.min.js"></script>
+  <style>
+    body { margin: 0; font-family: Pretendard, system-ui, sans-serif; background: #0b0b10; color: #f4f4f6; letter-spacing: -0.01em; line-height: 1.6; }
+    nav { position: sticky; top: 0; display: flex; flex-wrap: wrap; gap: 8px 16px; padding: 10px 16px; background: #1b1b24; font-size: 14px; border-bottom: 1px solid #262633; }
+    nav a { color: #c9b3ff; }
+    main { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
+    h1 { font-size: 26px; line-height: 1.3; }
+    h2 { margin-top: 40px; padding-top: 12px; border-top: 1px solid #262633; }
+    a { color: #c9b3ff; }
+    .table { overflow-x: auto; }
+    table { border-collapse: collapse; width: 100%; font-size: 14px; }
+    th, td { border: 1px solid #262633; padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #15151d; }
+    code { background: #1f1f2a; padding: 1px 6px; border-radius: 6px; }
+    blockquote { margin: 0; padding: 4px 16px; border-left: 3px solid #8956fb; color: #b8b8c6; }
+    .error { color: #ff9a9a; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="./">← 목록</a>
+    <a id="open" href="./">화면 열기</a>
+    <a id="source" href="#">GitHub에서 보기</a>
+  </nav>
+  <main id="doc">불러오는 중…</main>
+  <script>
+    // spec.html?slug=<폴더> — 같은 폴더의 SPEC.md 를 읽어 그린다. 목록·미리보기 어디서 열어도 상대 경로로 동작한다.
+    const doc = document.getElementById("doc");
+    const slug = new URLSearchParams(location.search).get("slug") ?? "";
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
+      doc.innerHTML = '<p class="error">명세를 찾을 수 없어요. 목록에서 다시 골라 주세요.</p>';
+    } else {
+      document.getElementById("open").href = `./${slug}/`;
+      document.getElementById("source").href = `https://github.com/Jeong-Jae-Hun/prototype/blob/main/prototypes/${slug}/SPEC.md`;
+      fetch(`./${slug}/SPEC.md`, { cache: "no-cache" })
+        .then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))))
+        .then((md) => {
+          doc.innerHTML = DOMPurify.sanitize(marked.parse(md));
+          doc.querySelectorAll("table").forEach((t) => t.outerHTML = `<div class="table">${t.outerHTML}</div>`);
+          document.title = `명세 — ${doc.querySelector("h1")?.textContent ?? slug}`;
+        })
+        .catch(() => { doc.innerHTML = '<p class="error">명세를 불러오지 못했어요. 새로고침하거나 GitHub에서 보세요.</p>'; });
+    }
+  </script>
+</body>
+</html>

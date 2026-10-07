@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>하이라이트 투표 프로토타입</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <style>
+    :root { --bg: #0b0b10; --panel: #15151d; --line: #262633; --text: #f4f4f6; --sub: #9a9aab; --brand: #8956fb; --soft: rgba(137, 86, 251, 0.18); }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Pretendard, system-ui, sans-serif; background: var(--bg); color: var(--text); letter-spacing: -0.01em; }
+    button { font: inherit; color: inherit; }
+    #view { position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; gap: 8px 16px; padding: 8px 16px; background: #1b1b24; font-size: 13px; border-bottom: 1px dashed #444; }
+    #view select { background: #0b0b10; color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; }
+    #app { max-width: 1080px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+    header { display: flex; align-items: center; gap: 12px; }
+    .avatar { width: 48px; height: 48px; border-radius: 50%; background: #3a3a4a; flex: none; }
+    .name { font-weight: 700; }
+    .sub { color: var(--sub); font-size: 13px; line-height: 1.5; }
+    h2 { margin: 0; font-size: 18px; }
+    .bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+    .tag { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #2d2d3a; color: var(--sub); }
+    .tag.brand { background: var(--soft); color: #c9b3ff; }
+    .tag.warn { background: rgba(255, 122, 122, 0.15); color: #ff9a9a; }
+    .notice { padding: 12px 14px; border-radius: 12px; background: #1f1f2a; font-size: 14px; color: var(--sub); line-height: 1.5; }
+    .notice.brand { background: var(--soft); color: #e2d6ff; }
+    .grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    @media (min-width: 640px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 960px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+    .card { border: 1px solid var(--line); border-radius: 16px; background: var(--panel); padding: 12px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+    .card.on { border-color: var(--brand); }
+    .card.off { opacity: 0.5; }
+    .thumb { position: relative; aspect-ratio: 16 / 9; border-radius: 10px; background: #33333f; }
+    .dur { position: absolute; right: 8px; bottom: 8px; padding: 2px 6px; border-radius: 6px; background: rgba(0, 0, 0, 0.75); font-size: 12px; font-variant-numeric: tabular-nums; }
+    .rank { position: absolute; left: 8px; top: 8px; }
+    .title { font-weight: 600; line-height: 1.4; word-break: keep-all; overflow-wrap: anywhere; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .btn { min-height: 44px; padding: 0 16px; border-radius: 12px; border: 0; background: var(--brand); font-weight: 700; cursor: pointer; }
+    .btn.full { width: 100%; }
+    .btn.ghost { background: #23232e; font-weight: 500; }
+    .btn.danger { background: #3a1f24; color: #ffb3b3; font-weight: 500; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .best { display: grid; grid-template-columns: 1fr; gap: 16px; padding: 16px; border-radius: 20px; background: linear-gradient(135deg, #241a3d, #15151d); border: 1px solid var(--brand); }
+    @media (min-width: 960px) { .best { grid-template-columns: 3fr 2fr; align-items: center; } }
+    .best .big { font-size: 22px; font-weight: 800; line-height: 1.35; word-break: keep-all; }
+    .mini { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); }
+    .mini .thumb { width: 112px; flex: none; }
+    .list { display: flex; flex-direction: column; gap: 8px; }
+    .li { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); }
+    .li .n { width: 28px; text-align: center; font-weight: 800; color: var(--sub); flex: none; }
+    .li .grow { flex: 1; min-width: 0; }
+    .num { font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
+    .empty { color: var(--sub); text-align: center; padding: 32px 16px; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <!-- 보기 전환 — SPEC.md 권한 표·상태 변화 표를 눈으로 대조하는 장치. 프로토타입 화면의 일부가 아니다. -->
+  <div id="view">
+    <a href="../" style="color:#c9b3ff">← 목록</a>
+    <a href="../spec.html?slug=highlight-vote" style="color:#c9b3ff">명세 읽기</a>
+    <label>역할 <select id="role"></select></label>
+    <label>상태 <select id="state"></select></label>
+  </div>
+
+  <div id="app"></div>
+
+  <script>
+    // 숫자는 여기 한 곳 — SPEC.md 「숫자」 절과 같은 값.
+    const NUM = {
+      votesPerWeek: 3,        // 한 사람이 한 주에 쓰는 표
+      votesPerClip: 1,        // 한 클립에 줄 수 있는 표
+      minCandidates: 3,       // 후보가 이보다 적으면 그 주 투표를 열지 않는다
+      maxCandidates: 8,
+      autoPickCount: 6,       // 방송인이 후보를 안 고르면 조회수 순으로 자동 선정
+      maxClipSec: 180,        // 3분 넘는 클립은 후보 불가
+      minTotalVotes: 10,      // 전체 표가 이보다 적으면 베스트 없음
+      pickHours: 24,          // 후보 선정 기간 (월 00:00 ~ 화 00:00)
+      closeAt: "일 21:00",    // 투표 마감 (한국 시간)
+      announceAt: "일 22:00", // 베스트 발표
+    };
+    const ROLES = { guest: "비로그인", member: "일반 회원", owner: "방송인", admin: "운영자" };
+    const STATES = { pick: "후보 선정", voting: "투표 중", closed: "마감 (집계 중)", announced: "베스트 발표" };
+
+    const view = { role: "member", state: "voting", confirmExclude: null };
+    const OWNER = "달빛하루";
+    const WEEK = "10월 1주차 · 9/28(월) ~ 10/4(일) 클립";
+
+    // 가짜 데이터 — 실데이터 금지. base = 다른 시청자 표, reach = 그 득표수에 도달한 순서(동점 판정용).
+    const seed = () => ({
+      clips: [
+        { id: 1, title: "보스 앞에서 3초 남기고 역전", sec: 42, views: 1840, by: "새벽두시", base: 9, reach: 3 },
+        { id: 2, title: "고양이가 키보드 밟아서 방송 꺼짐", sec: 27, views: 2310, by: "고양이발", base: 12, reach: 1 },
+        { id: 3, title: "노래 방송 고음 성공 (재도전 4번째)", sec: 95, views: 1520, by: "별사탕", base: 9, reach: 2 },
+        { id: 4, title: "퀴즈 전부 틀리고 해맑게 웃기", sec: 61, views: 980, by: "새벽두시", base: 4, reach: 4 },
+        { id: 5, title: "시청자 채팅 읽다가 말 꼬임", sec: 18, views: 760, by: "초록우산", base: 3, reach: 5 },
+        { id: 6, title: "공포 게임 첫 점프 스케어 반응", sec: 33, views: 1310, by: "고양이발", base: 6, reach: 6 },
+        { id: 7, title: "요리 방송 계란 세 개 연속 실패", sec: 140, views: 640, by: "별사탕", base: 0, reach: 7 },
+        { id: 8, title: "엔딩 크레딧 보면서 우는 장면 전체", sec: 252, views: 1100, by: "초록우산", base: 0, reach: 8 },
+      ],
+      cand: new Set([1, 2, 3, 4, 5, 6]),
+      excluded: new Map(),   // id -> "방송인" | "운영자"
+      mine: new Set(),
+      returned: 0,           // 후보에서 빠져서 돌려받은 내 표
+      voters: 47,
+      prevBest: { title: "라면 끓이다 물 넘침", sec: 38, votes: 31 },
+    });
+    let data = seed();
+
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+    const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+    const clip = (id) => data.clips.find((c) => c.id === id);
+    const eligible = (c) => c.sec <= NUM.maxClipSec;
+    const live = () => data.clips.filter((c) => data.cand.has(c.id) && !data.excluded.has(c.id));
+    const count = (c) => c.base + (data.mine.has(c.id) ? 1 : 0);
+    const left = () => NUM.votesPerWeek - data.mine.size;
+    // 많은 표 → 그 득표수에 먼저 도달한 클립 순
+    const ranking = () => [...live()].sort((a, b) => count(b) - count(a) || a.reach - b.reach);
+    const total = () => live().reduce((n, c) => n + count(c), 0);
+    const app = document.getElementById("app");
+
+    const thumb = (c, extra = "") => `<div class="thumb">${extra}<span class="dur">${mmss(c.sec)}</span></div>`;
+
+    const header = () => `
+      <header>
+        <div class="avatar"></div>
+        <div><div class="name">${OWNER}</div><div class="sub">채널 홈 · 하이라이트 투표</div></div>
+      </header>`;
+
+    const prevBest = () => `
+      <div class="mini">
+        ${thumb(data.prevBest)}
+        <div><span class="tag brand">지난 투표 베스트</span><div class="title">${esc(data.prevBest.title)}</div><div class="sub">${data.prevBest.votes}표</div></div>
+      </div>`;
+
+    // ─── 후보 선정 ───
+    const pickScreen = () => {
+      if (view.role !== "owner") {
+        const adminNote = view.role === "admin" ? `<div class="notice">방송인 선택 ${data.cand.size}개. 화요일 00:00까지 고르지 않으면 조회수 상위 ${NUM.autoPickCount}개로 자동 선정돼요.</div>` : "";
+        return `${prevBest()}${adminNote}
+          <div class="empty">다음 하이라이트 투표를 준비하고 있어요.<br>투표는 화요일 00:00에 열려요.</div>`;
+      }
+      const n = data.cand.size;
+      return `${prevBest()}
+        <div class="bar"><h2>후보 고르기</h2><span class="tag ${n > NUM.maxCandidates || n < NUM.minCandidates ? "warn" : "brand"}" id="pick-count">선택 ${n} / ${NUM.maxCandidates}</span></div>
+        <div class="notice">${WEEK} 중에서 ${NUM.minCandidates}~${NUM.maxCandidates}개를 골라요. ${mmss(NUM.maxClipSec)}보다 긴 클립은 후보가 될 수 없어요. 화요일 00:00까지 안 고르면 조회수 상위 ${NUM.autoPickCount}개로 자동 선정돼요.</div>
+        <div class="grid">
+          ${data.clips.map((c) => {
+            const on = data.cand.has(c.id);
+            const ok = eligible(c);
+            return `<div class="card${on ? " on" : ""}${ok ? "" : " off"}">
+              ${thumb(c)}
+              <div class="title">${esc(c.title)}</div>
+              <div class="sub">클립 ${esc(c.by)} · 조회 ${c.views.toLocaleString()}</div>
+              ${ok
+                ? `<button class="btn ${on ? "" : "ghost"} full" data-pick="${c.id}" ${!on && n >= NUM.maxCandidates ? "disabled" : ""}>${on ? "후보에서 빼기" : "후보에 넣기"}</button>`
+                : `<span class="tag warn">${mmss(NUM.maxClipSec)} 초과 — 후보 불가</span>`}
+            </div>`;
+          }).join("")}
+        </div>
+        <button class="btn full" data-confirm-pick ${n < NUM.minCandidates ? "disabled" : ""}>후보 ${n}개로 투표 열기</button>`;
+    };
+
+    // ─── 투표 중 · 마감 ───
+    const clipCard = (c) => {
+      const voted = data.mine.has(c.id);
+      const r = view.role;
+      const voting = view.state === "voting";
+      let act = "";
+      if (voting && r === "guest") act = `<button class="btn ghost full" data-login>로그인하고 투표</button>`;
+      if (voting && r === "member") act = voted
+        ? `<button class="btn full" data-unvote="${c.id}">투표 취소</button>`
+        : `<button class="btn ghost full" data-vote="${c.id}" ${left() <= 0 ? "disabled" : ""}>투표하기</button>`;
+      if (voting && (r === "owner" || r === "admin")) act = view.confirmExclude === c.id
+        ? `<div class="sub">빼면 이 클립에 들어온 표는 투표한 사람에게 돌아가요.</div>
+           <div class="actions"><button class="btn danger" data-exclude="${c.id}">빼기 확정</button><button class="btn ghost" data-cancel-exclude>취소</button></div>`
+        : `<button class="btn ghost full" data-ask-exclude="${c.id}">${r === "admin" ? "운영 사유로 후보 제외" : "후보에서 빼기"}</button>`;
+      const meta = [
+        voted ? `<span class="tag brand">내 표</span>` : "",
+        r === "admin" ? `<span class="tag">집계 ${count(c)}표 · 운영자만</span>` : "",
+      ].join(" ");
+      return `<div class="card${voted ? " on" : ""}">
+        ${thumb(c)}
+        <div class="title">${esc(c.title)}</div>
+        <div class="sub">클립 ${esc(c.by)} ${meta}</div>
+        ${act}
+      </div>`;
+    };
+
+    const voteScreen = () => {
+      const r = view.role;
+      const voting = view.state === "voting";
+      const list = live();
+      const status = voting
+        ? `<span class="tag brand">투표 중 · ${NUM.closeAt} 마감</span>`
+        : `<span class="tag">마감 · ${NUM.announceAt} 발표</span>`;
+      const head = {
+        guest: voting ? `로그인하면 한 주에 ${NUM.votesPerWeek}표를 줄 수 있어요. 결과는 ${NUM.announceAt}에 공개돼요.` : `집계 중이에요. 결과는 ${NUM.announceAt}에 공개돼요.`,
+        member: voting
+          ? `남은 표 <b id="left">${left()}</b> / ${NUM.votesPerWeek} · 한 클립에 ${NUM.votesPerClip}표까지. 순위는 마감 뒤에 공개돼요.`
+          : `내가 준 표 ${data.mine.size}개. 결과는 ${NUM.announceAt}에 공개돼요.`,
+        owner: `참여 ${data.voters + (data.mine.size ? 1 : 0)}명 · 클립별 표는 발표 때 함께 공개돼요.`,
+        admin: `참여 ${data.voters + (data.mine.size ? 1 : 0)}명 · 전체 ${total()}표 · 현재 1위 ${list.length ? esc(ranking()[0].title) : "-"}`,
+      }[r];
+      const limitNote = voting && r === "member" && left() <= 0
+        ? `<div class="notice" id="limit-note">이번 주 표를 다 썼어요. 투표를 취소하면 다른 클립에 줄 수 있어요.</div>` : "";
+      const returnedNote = r === "member" && data.returned
+        ? `<div class="notice">투표한 클립이 후보에서 빠져서 표 ${data.returned}개가 돌아왔어요.</div>` : "";
+      const excludedNote = (r === "owner" || r === "admin") && data.excluded.size
+        ? `<div class="sub">제외된 후보: ${[...data.excluded].map(([id, by]) => `${esc(clip(id).title)} (${by})`).join(", ")}</div>` : "";
+      return `${prevBest()}
+        <div class="bar"><h2>이번 주 하이라이트 투표</h2>${status}</div>
+        <div class="sub">${WEEK}</div>
+        <div class="notice brand">${head}</div>
+        ${returnedNote}${limitNote}
+        ${list.length ? `<div class="grid">${list.map(clipCard).join("")}</div>` : `<div class="empty">남은 후보가 없어요.</div>`}
+        ${excludedNote}`;
+    };
+
+    // ─── 베스트 발표 ───
+    const announceScreen = () => {
+      const rank = ranking();
+      if (!rank.length || total() < NUM.minTotalVotes) {
+        return `<div class="empty">이번 주는 표가 ${NUM.minTotalVotes}표보다 적어서 베스트가 없어요.<br>지난 베스트가 그대로 걸려 있어요.</div>${prevBest()}`;
+      }
+      const [w, ...rest] = rank;
+      const tie = rest.length && count(rest[0]) === count(w);
+      const ownerNote = view.role === "owner" ? `<div class="notice">채널 홈 맨 위에 다음 발표까지 걸려 있어요.</div>` : "";
+      const adminAct = view.role === "admin" ? `<button class="btn danger" data-takedown>운영 사유로 베스트 내리기</button>` : "";
+      return `<div class="best" id="best">
+          ${thumb(w, `<span class="tag brand rank">이번 주 베스트</span>`)}
+          <div class="list">
+            <span class="sub">${WEEK}</span>
+            <div class="big" id="best-title">${esc(w.title)}</div>
+            <div class="sub">클립 ${esc(w.by)} · <span class="num">${count(w)}표</span> / 전체 ${total()}표 ${data.mine.has(w.id) ? `<span class="tag brand">내 표</span>` : ""}</div>
+            ${tie ? `<div class="sub">동점 — ${count(w)}표에 먼저 도달한 클립이 베스트예요.</div>` : ""}
+            ${adminAct}
+          </div>
+        </div>
+        ${ownerNote}
+        <h2>전체 순위</h2>
+        <div class="list">
+          ${rank.map((c, i) => `<div class="li">
+            <span class="n">${i + 1}</span>
+            <div class="grow"><div class="title">${esc(c.title)}</div><div class="sub">클립 ${esc(c.by)} ${data.mine.has(c.id) ? `<span class="tag brand">내 표</span>` : ""}</div></div>
+            <span class="num">${count(c)}표</span>
+          </div>`).join("")}
+        </div>`;
+    };
+
+    const SCREENS = { pick: pickScreen, voting: voteScreen, closed: voteScreen, announced: announceScreen };
+    const render = () => { app.innerHTML = header() + SCREENS[view.state](); };
+
+    const setState = (s) => { view.state = s; state.value = s; view.confirmExclude = null; render(); };
+
+    app.addEventListener("click", (e) => {
+      const b = e.target.closest("button");
+      if (!b || b.disabled) return;
+      const d = b.dataset;
+      if (d.pick) {
+        const id = Number(d.pick);
+        if (data.cand.has(id)) data.cand.delete(id);
+        else if (data.cand.size < NUM.maxCandidates && eligible(clip(id))) data.cand.add(id);
+      }
+      if ("confirmPick" in d && data.cand.size >= NUM.minCandidates) return setState("voting");
+      if (d.vote) {
+        const id = Number(d.vote);
+        if (left() > 0 && !data.mine.has(id)) data.mine.add(id);
+      }
+      if (d.unvote) data.mine.delete(Number(d.unvote));
+      if (d.askExclude) view.confirmExclude = Number(d.askExclude);
+      if ("cancelExclude" in d) view.confirmExclude = null;
+      if (d.exclude) {
+        const id = Number(d.exclude);
+        data.excluded.set(id, view.role === "admin" ? "운영자" : "방송인");
+        if (data.mine.delete(id)) data.returned += 1;
+        view.confirmExclude = null;
+      }
+      if ("takedown" in d) { data.excluded.set(ranking()[0].id, "운영자"); }
+      if ("login" in d) { view.role = "member"; role.value = "member"; }
+      render();
+    });
+
+    const fill = (el, opts, cur) => {
+      el.innerHTML = Object.entries(opts).map(([v, t]) => `<option value="${v}"${v === cur ? " selected" : ""}>${t}</option>`).join("");
+    };
+    fill(role, ROLES, view.role);
+    fill(state, STATES, view.state);
+    // 상태를 바꿔도 데이터는 유지한다 — 후보 선정 → 투표 → 발표를 한 흐름으로 따라가기 위해. 새로고침하면 처음으로.
+    role.onchange = () => { view.role = role.value; view.confirmExclude = null; render(); };
+    state.onchange = () => setState(state.value);
+    render();
+  </script>
+</body>
+</html>

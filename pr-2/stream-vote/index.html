@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>다음 방송 투표 프로토타입</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <style>
+    :root { --bg: #0b0b10; --panel: #15151d; --line: #262633; --text: #f4f4f6; --sub: #9a9aab; --brand: #8956fb; --pick: #2a2140; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Pretendard, system-ui, sans-serif; background: var(--bg); color: var(--text); letter-spacing: -0.01em; }
+    button, input, select { font: inherit; color: inherit; }
+    #view { position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; gap: 8px 16px; padding: 8px 16px; background: #1b1b24; font-size: 13px; border-bottom: 1px dashed #444; }
+    #view select { background: #0b0b10; color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; }
+    #app { max-width: 480px; margin: 0 auto; min-height: calc(100vh - 40px); background: var(--panel); }
+    @media (min-width: 1024px) { #app { max-width: 720px; border-left: 1px solid var(--line); border-right: 1px solid var(--line); } }
+    header { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+    .avatar { width: 40px; height: 40px; border-radius: 50%; background: #3a3a4a; flex: none; }
+    .name { font-weight: 700; }
+    .sub { color: var(--sub); font-size: 13px; }
+    .body { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+    .title { font-size: 20px; font-weight: 800; word-break: break-word; }
+    .tag { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 999px; background: #2d2d3a; color: var(--sub); margin-left: 4px; white-space: nowrap; }
+    .tag.brand { background: rgba(137, 86, 251, 0.18); color: #c9b3ff; }
+    .list { display: flex; flex-direction: column; gap: 8px; }
+    .cand { position: relative; overflow: hidden; display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 10px 14px; border-radius: 14px; border: 1px solid var(--line); background: #1b1b24; text-align: left; width: 100%; }
+    button.cand { cursor: pointer; }
+    .cand[aria-pressed="true"] { border-color: var(--brand); background: var(--pick); }
+    .cand.win { border-color: var(--brand); }
+    .cand .bar { position: absolute; inset: 0 auto 0 0; background: rgba(137, 86, 251, 0.16); z-index: 0; }
+    .cand > :not(.bar) { position: relative; z-index: 1; }
+    .cand .label { flex: 1; min-width: 0; word-break: break-word; }
+    .cand .desc { display: block; font-size: 12px; color: var(--sub); margin-top: 2px; }
+    .cand .count { font-variant-numeric: tabular-nums; color: var(--sub); font-size: 13px; white-space: nowrap; }
+    .dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #55556a; flex: none; }
+    [aria-pressed="true"] .dot { border-color: var(--brand); background: var(--brand); box-shadow: inset 0 0 0 3px var(--pick); }
+    .btn { min-height: 44px; padding: 0 16px; border-radius: 14px; border: 0; background: var(--brand); font-weight: 700; cursor: pointer; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn.ghost { background: #23232e; font-weight: 500; }
+    .btn.danger { background: #3a1d24; color: #ffb3b3; }
+    .btn.block { width: 100%; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .row > .btn { flex: 1 1 140px; }
+    .notice { padding: 10px 12px; border-radius: 12px; background: #1f1f2a; font-size: 13px; color: var(--sub); line-height: 1.5; }
+    .notice.warn { background: #2a1f14; color: #ffcf99; }
+    .empty { color: var(--sub); text-align: center; padding: 40px 16px; line-height: 1.6; }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field > span { font-size: 13px; color: var(--sub); }
+    input[type="text"], .field select { width: 100%; min-height: 44px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: #0f0f15; }
+    .cand-edit { display: flex; gap: 8px; }
+    .cand-edit input { flex: 1; min-width: 0; }
+    .cand-edit .btn { flex: none; width: 44px; padding: 0; }
+    .hint { font-size: 12px; color: var(--sub); }
+  </style>
+</head>
+<body>
+  <!-- 보기 전환 — SPEC.md 권한 표·상태 변화 표를 눈으로 대조하는 장치. 프로토타입 화면의 일부가 아니다. -->
+  <div id="view">
+    <a href="../" style="color:#c9b3ff">← 목록</a>
+    <a href="../spec.html?slug=stream-vote" style="color:#c9b3ff">명세 읽기</a>
+    <label>역할 <select id="role"></select></label>
+    <label>상태 <select id="state"></select></label>
+  </div>
+
+  <div id="app"></div>
+
+  <script>
+    // 숫자는 여기 한 곳 — SPEC.md 「숫자」 절과 같은 값.
+    const NUM = {
+      candidateMin: 2,
+      candidateMax: 6,
+      titleMax: 60,
+      candidateLen: 40,
+      durationsHours: [1, 24, 72, 168], // 마감까지 선택지. 최대 7일
+      defaultDurationHours: 24,
+      tieDecideHours: 24, // 동점일 때 방송인이 고를 수 있는 시간
+    };
+    const ROLES = { guest: "비로그인", user: "일반 회원(멤버 아님)", member: "멤버", owner: "방송인", admin: "운영자" };
+    const STATES = { draft: "투표 전", open: "진행 중", closed: "마감 (동점 결정 대기)", announced: "결과 발표" };
+
+    const OWNER = "달빛하루";
+    const view = { role: "member", state: "open", pick: null, confirm: null };
+
+    // 가짜 데이터 — 실데이터 금지. base 는 나 말고 다른 사람들의 표.
+    const CANDS = [
+      { text: "공포 게임 정주행", desc: "새벽 감성 추천작 2편" },
+      { text: "노래 방송", desc: "신청곡 위주" },
+      { text: "시청자 참여 퀴즈", desc: "" },
+      { text: "밀린 이야기 수다", desc: "" },
+    ];
+    const seed = (s) => {
+      const poll = (base, extra) => ({ title: "다음 주 금요일 방송 뭐 할까요?", cands: CANDS.map((c, i) => ({ ...c, base: base[i] })), myVote: null, left: "13시간 남음", hidden: false, hideReason: "", winner: null, early: false, ...extra });
+      if (s === "draft") return { poll: null, draft: { title: "다음 주 금요일 방송 뭐 할까요?", cands: ["공포 게임 정주행", "노래 방송", "시청자 참여 퀴즈"], hours: NUM.defaultDurationHours } };
+      if (s === "open") return { poll: poll([12, 9, 15, 4]) };
+      if (s === "closed") return { poll: poll([21, 21, 10, 6], { left: "마감됨", myVote: null }) };
+      return { poll: poll([18, 31, 10, 6], { left: "마감됨", winner: 1 }) };
+    };
+    let data = seed(view.state);
+
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+    const counts = (p) => p.cands.map((c, i) => c.base + (p.myVote === i ? 1 : 0));
+    const total = (p) => counts(p).reduce((a, b) => a + b, 0);
+    const tied = (p) => { const cs = counts(p); const max = Math.max(...cs); return cs.flatMap((n, i) => (n === max ? [i] : [])); };
+    const hoursLabel = (h) => (h < 24 ? `${h}시간` : `${h / 24}일`);
+    const app = document.getElementById("app");
+
+    const header = () => `
+      <header>
+        <div class="avatar"></div>
+        <div><div class="name">${OWNER} <span class="tag brand">다음 방송 투표</span></div><div class="sub">멤버 투표로 다음 방송을 정해요</div></div>
+      </header>`;
+
+    // 후보 목록 — mode: plain(목록만) · vote(고르기) · live(실시간 득표) · result(최종 득표)
+    const candList = (p, mode) => {
+      const cs = counts(p);
+      const sum = cs.reduce((a, b) => a + b, 0) || 1;
+      return `<div class="list" role="${mode === "vote" ? "radiogroup" : "list"}">${p.cands.map((c, i) => {
+        const showCount = mode === "live" || mode === "result";
+        const pct = Math.round((cs[i] / sum) * 100);
+        const inner = `
+          ${showCount ? `<span class="bar" style="width:${pct}%"></span>` : ""}
+          ${mode === "vote" ? `<span class="dot"></span>` : ""}
+          <span class="label">${esc(c.text)}${p.myVote === i ? `<span class="tag brand">내 선택</span>` : ""}${p.winner === i ? `<span class="tag brand">다음 방송</span>` : ""}${c.desc ? `<span class="desc">${esc(c.desc)}</span>` : ""}</span>
+          ${showCount ? `<span class="count">${cs[i]}표 · ${pct}%</span>` : ""}`;
+        return mode === "vote"
+          ? `<button class="cand" role="radio" aria-pressed="${view.pick === i}" aria-checked="${view.pick === i}" data-pick="${i}">${inner}</button>`
+          : `<div class="cand${p.winner === i ? " win" : ""}" role="listitem">${inner}</div>`;
+      }).join("")}</div>`;
+    };
+
+    const pollHead = (p) => `
+      <div>
+        <div class="title">${esc(p.title)}</div>
+        <div class="sub">${view.state === "open" ? `${p.left} · 참여 ${total(p)}명` : `${p.early ? "방송인이 일찍 마감했어요 · " : ""}참여 ${total(p)}명`}</div>
+      </div>`;
+
+    const hiddenNotice = (p) => `<div class="notice warn">운영 정책에 따라 숨겨진 투표예요.${view.role === "owner" ? ` 사유: ${esc(p.hideReason)}` : ""}</div>`;
+
+    // ─── 방송인 ───
+    const ownerDraft = () => {
+      const d = data.draft;
+      const filled = d.cands.filter((c) => c.trim()).length;
+      const ok = d.title.trim() && filled >= NUM.candidateMin;
+      return `
+        <div class="notice">투표를 시작하면 후보를 고칠 수 없어요. 고쳐야 하면 투표를 취소하고 다시 만들어야 해요.</div>
+        <label class="field"><span>질문 (${NUM.titleMax}자까지)</span><input type="text" data-draft="title" maxlength="${NUM.titleMax}" value="${esc(d.title)}"></label>
+        <div class="field"><span>후보 (${NUM.candidateMin}~${NUM.candidateMax}개, 각 ${NUM.candidateLen}자까지)</span>
+          ${d.cands.map((c, i) => `<div class="cand-edit"><input type="text" data-draft="cand" data-i="${i}" maxlength="${NUM.candidateLen}" placeholder="후보 ${i + 1}" value="${esc(c)}" aria-label="후보 ${i + 1}">
+            <button class="btn ghost" data-remove="${i}" aria-label="후보 ${i + 1} 빼기" ${d.cands.length <= NUM.candidateMin ? "disabled" : ""}>✕</button></div>`).join("")}
+          <button class="btn ghost" data-add ${d.cands.length >= NUM.candidateMax ? "disabled" : ""}>후보 추가</button>
+        </div>
+        <label class="field"><span>마감까지</span><select data-draft="hours">${NUM.durationsHours.map((h) => `<option value="${h}"${h === d.hours ? " selected" : ""}>${hoursLabel(h)}</option>`).join("")}</select></label>
+        <button class="btn block" data-start ${ok ? "" : "disabled"}>투표 시작</button>
+        <div class="hint">시작하면 멤버에게 알림이 가요. 채널에는 한 번에 투표 하나만 열 수 있어요.</div>`;
+    };
+
+    const ownerOpen = (p) => `
+      ${p.hidden ? hiddenNotice(p) : ""}
+      ${pollHead(p)}
+      <div class="notice">실시간 득표는 방송인과 운영자만 봐요. 멤버에게는 마감 후에 공개돼요.</div>
+      ${candList(p, "live")}
+      ${view.confirm === "close" ? `<div class="notice warn">지금 마감하면 되돌릴 수 없어요. 현재 득표로 결과가 정해져요.</div>
+        <div class="row"><button class="btn" data-close>지금 마감</button><button class="btn ghost" data-confirm="">돌아가기</button></div>`
+      : view.confirm === "cancel" ? `<div class="notice warn">투표를 취소하면 받은 표 ${total(p)}개가 모두 사라지고 멤버에게 취소 알림이 가요.</div>
+        <div class="row"><button class="btn danger" data-cancel>투표 취소</button><button class="btn ghost" data-confirm="">돌아가기</button></div>`
+      : `<div class="row"><button class="btn" data-confirm="close">일찍 마감하기</button><button class="btn ghost" data-confirm="cancel">투표 취소</button></div>`}`;
+
+    const ownerClosed = (p) => `
+      ${pollHead(p)}
+      <div class="notice warn">동점이에요. ${NUM.tieDecideHours}시간 안에 다음 방송을 직접 골라 주세요. 고르지 않으면 먼저 등록한 후보로 정해져요.</div>
+      ${candList(p, "result")}
+      <div class="list">${tied(p).map((i) => `<button class="btn block" data-decide="${i}">「${esc(p.cands[i].text)}」로 정하기</button>`).join("")}</div>`;
+
+    // ─── 시청자 쪽(비로그인·일반 회원·멤버) ───
+    const viewerOpen = (p) => {
+      if (view.role === "guest") return `${pollHead(p)}${candList(p, "plain")}<div class="notice">멤버만 투표할 수 있어요. 결과는 마감 후 누구나 볼 수 있어요.</div><button class="btn block">로그인</button>`;
+      if (view.role === "user") return `${pollHead(p)}${candList(p, "plain")}<div class="notice">${OWNER}님 멤버만 투표할 수 있어요.</div><button class="btn block">멤버십 가입</button>`;
+      const voted = p.myVote !== null;
+      const same = view.pick === p.myVote;
+      return `${pollHead(p)}
+        ${candList(p, "vote")}
+        <button class="btn block" data-vote ${view.pick === null || same ? "disabled" : ""}>${!voted ? "투표하기" : same ? "투표 완료" : "이걸로 바꾸기"}</button>
+        <div class="hint">한 사람 한 표예요. 마감 전까지는 언제든 바꿀 수 있어요. 득표는 마감 후에 공개돼요.</div>`;
+    };
+
+    const viewerClosed = (p) => `${pollHead(p)}${candList(p, "plain")}<div class="notice">투표가 끝났어요. 동점이라 ${OWNER}님이 다음 방송을 고르는 중이에요.</div>`;
+
+    // ─── 운영자 ───
+    const adminTools = (p) => p.hidden
+      ? `<div class="notice warn">숨김 처리됨 · 사유: ${esc(p.hideReason)} (감사 기록됨)</div><button class="btn ghost block" data-unhide>숨김 해제</button>`
+      : `<label class="field"><span>숨김 사유 (필수, 감사 기록에 남아요)</span><input type="text" id="hide-reason" placeholder="예: 후보 문구 신고 접수"></label>
+         <button class="btn danger block" data-hide disabled>이 투표 숨기기</button>`;
+
+    const screen = () => {
+      const p = data.poll;
+      const r = view.role;
+      const s = view.state;
+      if (s === "draft" || !p) {
+        if (r === "owner") return ownerDraft();
+        return `<div class="empty">지금 열린 투표가 없어요.<br>${OWNER}님이 투표를 열면 ${r === "member" ? "알려 드릴게요" : "여기에 보여요"}.</div>`;
+      }
+      if (p.hidden && r !== "admin" && r !== "owner") return hiddenNotice(p);
+      if (r === "admin") return `${pollHead(p)}<div class="notice">운영자 보기 — 득표 수만 보이고 누가 어디에 투표했는지는 보이지 않아요.</div>${candList(p, s === "open" ? "live" : "result")}${adminTools(p)}`;
+      if (s === "open") return r === "owner" ? ownerOpen(p) : viewerOpen(p);
+      if (s === "closed") return r === "owner" ? ownerClosed(p) : viewerClosed(p);
+      // 결과 발표
+      return `${p.hidden ? hiddenNotice(p) : ""}${pollHead(p)}
+        <div class="notice">다음 방송은 <b>${esc(p.cands[p.winner].text)}</b>(으)로 정해졌어요.</div>
+        ${candList(p, "result")}
+        ${r === "owner" ? `<button class="btn ghost block" data-new>새 투표 만들기</button>` : ""}`;
+    };
+
+    const render = () => { app.innerHTML = `${header()}<div class="body">${screen()}</div>`; };
+    const go = (s) => { view.state = s; state.value = s; view.confirm = null; view.pick = data.poll ? data.poll.myVote : null; };
+
+    app.addEventListener("input", (e) => {
+      const t = e.target;
+      if (t.id === "hide-reason") { app.querySelector("[data-hide]").disabled = !t.value.trim(); return; }
+      const k = t.dataset.draft;
+      if (!k || !data.draft) return;
+      if (k === "title") data.draft.title = t.value;
+      if (k === "cand") data.draft.cands[Number(t.dataset.i)] = t.value;
+      const ok = data.draft.title.trim() && data.draft.cands.filter((c) => c.trim()).length >= NUM.candidateMin;
+      app.querySelector("[data-start]").disabled = !ok;
+    });
+    app.addEventListener("change", (e) => {
+      if (e.target.dataset.draft === "hours") data.draft.hours = Number(e.target.value);
+    });
+
+    app.addEventListener("click", (e) => {
+      const b = e.target.closest("button");
+      if (!b || b.disabled) return;
+      const d = b.dataset;
+      const p = data.poll;
+      if (d.pick) view.pick = Number(d.pick);
+      if ("vote" in d) p.myVote = view.pick;
+      if ("confirm" in d) view.confirm = d.confirm || null;
+      if ("add" in d) data.draft.cands.push("");
+      if (d.remove) data.draft.cands.splice(Number(d.remove), 1);
+      if ("start" in d) {
+        const dr = data.draft;
+        data = { poll: { title: dr.title.trim(), cands: dr.cands.filter((c) => c.trim()).map((c) => ({ text: c.trim(), desc: "", base: 0 })), myVote: null, left: `${hoursLabel(dr.hours)} 남음`, hidden: false, hideReason: "", winner: null, early: false } };
+        go("open");
+      }
+      if ("close" in d) {
+        p.early = true; p.left = "마감됨";
+        const t = tied(p);
+        if (t.length === 1) { p.winner = t[0]; go("announced"); } else go("closed");
+      }
+      if (d.decide) { p.winner = Number(d.decide); go("announced"); }
+      if ("cancel" in d || "new" in d) { data = seed("draft"); go("draft"); }
+      if ("hide" in d) { p.hidden = true; p.hideReason = document.getElementById("hide-reason").value.trim(); }
+      if ("unhide" in d) { p.hidden = false; p.hideReason = ""; }
+      render();
+    });
+
+    const fill = (el, opts, cur) => {
+      el.innerHTML = Object.entries(opts).map(([v, t]) => `<option value="${v}"${v === cur ? " selected" : ""}>${t}</option>`).join("");
+    };
+    fill(role, ROLES, view.role);
+    fill(state, STATES, view.state);
+    // 역할만 바꾸면 데이터는 유지된다 — 방송인이 만든 투표에 멤버로 바꿔 투표해 보는 흐름.
+    role.onchange = () => { view.role = role.value; view.confirm = null; view.pick = data.poll ? data.poll.myVote : null; render(); };
+    state.onchange = () => { data = seed(state.value); go(state.value); render(); };
+    render();
+  </script>
+</body>
+</html>
