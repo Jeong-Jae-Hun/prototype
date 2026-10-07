@@ -1,20 +1,25 @@
 // 프로토타입 허브 — prototypes/ 의 폴더를 훑어 목록 페이지(index.html)를 만든다.
 // .github/workflows/preview.yml 이 gh-pages 에 올리기 직전에 부른다. 결과물은 커밋하지 않는다(prototypes/index.html 은 gitignore).
-// 제목·상태·담당은 각 폴더 SPEC.md 머리에서 읽는다 — 목록을 손으로 따로 적으면 명세와 어긋난다.
+// 제목·종류·상태·브랜드·담당은 각 폴더 SPEC.md 머리에서 읽는다 — 목록을 손으로 따로 적으면 명세와 어긋난다.
+// 종류별로 묶는다: 디자인 시스템·구조는 "기반"(바꾸면 모든 화면이 따라 바뀐다), 나머지는 "기능".
 //
-// 사용: node scripts/hub.cjs <prototypes 경로> <제목> <링크 접두사> <명세 링크 접두사>
-//   예: node scripts/hub.cjs prototypes "확정본" "" "https://github.com/o/r/blob/main/prototypes"
+// 사용: node scripts/hub.cjs <prototypes 경로> <제목> <링크 접두사> <명세 링크 접두사> [화면 비교 링크]
+//   예: node scripts/hub.cjs prototypes "확정본" "" "https://github.com/o/r/blob/main/prototypes" [_shots/]
 
 const fs = require("node:fs");
 const path = require("node:path");
 
 const STATUS_ORDER = ["검토 중", "초안", "확정"];
+const KIND_ORDER = ["디자인 시스템", "구조", "기능"];
+const BRAND_LABEL = { reader: "책숲", partner: "책숲 파트너" };
 
 function readSpec(text) {
   const row = (key) => text.match(new RegExp(`^\\|\\s*${key}\\s*\\|\\s*(.+?)\\s*\\|\\s*$`, "m"))?.[1] ?? "";
   return {
     title: text.match(/^#\s+(.+)$/m)?.[1].trim() ?? "",
+    kind: row("종류") || "기능",
     status: row("상태"),
+    brands: [...new Set(row("브랜드").match(/\b(reader|partner)\b/g) ?? [])],
     owners: row("담당"),
   };
 }
@@ -27,7 +32,7 @@ function collect(dir) {
       const spec = path.join(dir, d.name, "SPEC.md");
       return { slug: d.name, ...readSpec(fs.existsSync(spec) ? fs.readFileSync(spec, "utf8") : "") };
     })
-    .sort((a, b) => rank(a.status) - rank(b.status) || a.slug.localeCompare(b.slug));
+    .sort((a, b) => kindRank(a.kind) - kindRank(b.kind) || rank(a.status) - rank(b.status) || a.slug.localeCompare(b.slug));
 }
 
 // 템플릿 그대로의 "초안 / 검토 중 / 확정" 같은 값은 맨 뒤로 보낸다 — 아직 아무도 상태를 안 적은 것이다.
@@ -36,25 +41,33 @@ function rank(status) {
   return i === -1 ? STATUS_ORDER.length : i;
 }
 
+function kindRank(kind) {
+  const i = KIND_ORDER.indexOf(kind);
+  return i === -1 ? KIND_ORDER.length : i;
+}
+
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
-function render(items, { heading, linkPrefix, specPrefix }) {
-  const rows = items
-    .map((it) => `
+function render(items, { heading, linkPrefix, specPrefix, shots = "" }) {
+  const card = (it) => `
       <li>
         <a class="open" href="${esc(linkPrefix)}${esc(it.slug)}/">
           <span class="status" data-status="${esc(it.status)}">${esc(it.status || "상태 없음")}</span>
           <span class="title">${esc(it.title || it.slug)}</span>
           <span class="slug">${esc(it.slug)}</span>
         </a>
+        <div class="brands">${it.brands.map((b) => `<span class="brand">${esc(BRAND_LABEL[b] ?? b)}</span>`).join("")}</div>
         <div class="links">
           <a class="btn" href="${esc(linkPrefix)}${esc(it.slug)}/">화면 보기</a>
           <a class="btn" href="${esc(linkPrefix)}spec.html?slug=${esc(it.slug)}">명세 읽기</a>
           ${specPrefix ? `<a class="sub" href="${esc(specPrefix)}/${esc(it.slug)}/SPEC.md">GitHub</a>` : ""}
         </div>
         <div class="meta">${esc(it.owners)}</div>
-      </li>`)
-    .join("");
+      </li>`;
+  const base = items.filter((it) => it.kind !== "기능");
+  const features = items.filter((it) => it.kind === "기능");
+  const section = (title, desc, list) =>
+    list.length ? `<section><h2>${title}</h2><p>${desc}</p><ul>${list.map(card).join("")}</ul></section>` : "";
   return `<!doctype html>
 <html lang="ko">
 <head>
@@ -82,13 +95,21 @@ function render(items, { heading, linkPrefix, specPrefix }) {
     .links { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
     .btn { display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; border-radius: 12px; background: #23232e; text-decoration: none; font-size: 14px; }
     .sub { color: #9a9aab; font-size: 13px; }
+    h2 { font-size: 17px; margin: 28px 0 4px; }
+    .brands { display: flex; gap: 6px; margin-top: 8px; }
+    .brand { font-size: 12px; padding: 2px 8px; border-radius: 6px; border: 1px solid #33333f; color: #c4c4d0; }
+    .shots { display: inline-flex; margin: 0 0 8px; padding: 10px 14px; border-radius: 12px; background: #23232e; text-decoration: none; }
   </style>
 </head>
 <body>
   <main>
     <h1>프로토타입 · ${esc(heading)}</h1>
     <p>화면은 버리는 프로토타입이고, 규칙은 명세가 정본이다. 둘이 어긋나면 명세가 맞다. 처음이면 <a href="https://github.com/Jeong-Jae-Hun/prototype#readme">사용법</a>부터.</p>
-    ${items.length ? `<ul>${rows}</ul>` : `<div class="empty">아직 프로토타입이 없다.</div>`}
+    ${shots ? `<a class="shots" href="${esc(shots)}">화면 비교 — main 과 무엇이 달라졌나</a>` : ""}
+    ${items.length
+      ? section("기반", "디자인 시스템과 앱 구조. 이걸 바꾸면 아래 모든 기능 화면이 따라 바뀐다.", base) +
+        section("기능", "기능 하나 = 프로토타입 하나.", features)
+      : `<div class="empty">아직 프로토타입이 없다.</div>`}
   </main>
 </body>
 </html>
@@ -98,10 +119,10 @@ function render(items, { heading, linkPrefix, specPrefix }) {
 module.exports = { readSpec, collect, render };
 
 if (require.main === module) {
-  const [dir, heading, linkPrefix = "", specPrefix = ""] = process.argv.slice(2);
+  const [dir, heading, linkPrefix = "", specPrefix = "", shots = ""] = process.argv.slice(2);
   if (!dir || !heading) {
-    console.error("Usage: proto-hub.cjs <dir> <heading> [linkPrefix] [specPrefix]");
+    console.error("Usage: hub.cjs <dir> <heading> [linkPrefix] [specPrefix] [shotsHref]");
     process.exit(1);
   }
-  process.stdout.write(render(collect(dir), { heading, linkPrefix, specPrefix }));
+  process.stdout.write(render(collect(dir), { heading, linkPrefix, specPrefix, shots }));
 }
