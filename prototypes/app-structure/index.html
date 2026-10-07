@@ -3,249 +3,45 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>앱 구조 — 사이트맵</title>
-  <!-- 순서가 중요하다: 테마(색 결정) → 토큰·컴포넌트 → 셸 -->
+  <title>앱 구조</title>
   <script src="../design-system/theme.js" data-brands="reader partner"></script>
   <link rel="stylesheet" href="../design-system/tokens.css">
   <link rel="stylesheet" href="../design-system/components.css">
   <script src="../app-structure/shell.js" data-active="app-structure" defer></script>
   <style>
-    main { max-width: 1080px; margin: 0 auto; padding: var(--ds-space-5) var(--ds-space-4); display: grid; gap: var(--ds-space-6); }
-    [hidden] { display: none !important; }
-    h1 { font-size: var(--ds-font-size-xl); margin: 0; }
-    h2 { font-size: var(--ds-font-size-lg); margin: 0 0 var(--ds-space-3); }
-    h3 { font-size: var(--ds-font-size-md); margin: 0; }
-    p { margin: 0; }
-    .sub { color: var(--ds-color-sub); font-size: var(--ds-font-size-sm); }
-    .tree { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ds-space-4); }
-    .tab-row { display: grid; gap: var(--ds-space-2); padding-left: var(--ds-space-3); border-left: 3px solid var(--ds-color-brand); }
-    .tab-row[data-access="locked"] { border-left-color: var(--ds-color-warning); }
-    .tab-row[data-access="hidden"] { border-left-style: dashed; border-left-color: var(--ds-color-line); opacity: 0.55; }
-    .tab-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2); }
-    .tab-head .icon { font-size: 18px; width: 24px; text-align: center; }
-    .screens { display: grid; gap: var(--ds-space-3); grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
-    .screen { display: grid; gap: var(--ds-space-2); }
-    .screen .tags { display: flex; flex-wrap: wrap; gap: var(--ds-space-1); }
-    .screen .links { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); }
-    .compare { display: grid; gap: var(--ds-space-4); grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
-    .compare ol { margin: 0; padding-left: var(--ds-space-5); display: grid; gap: var(--ds-space-1); }
-    .rules { margin: 0; padding-left: var(--ds-space-5); display: grid; gap: var(--ds-space-2); }
-    .access-note { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-3); }
-    .sheet-back { position: fixed; inset: 0; z-index: 60; background: color-mix(in srgb, var(--ds-color-text) 40%, transparent); display: flex; align-items: flex-end; justify-content: center; }
-    .sheet { width: 100%; max-width: 480px; border-radius: var(--ds-radius-lg) var(--ds-radius-lg) 0 0; display: grid; gap: var(--ds-space-3); padding: var(--ds-space-5) var(--ds-space-4); }
-    .sheet .ds-btn { width: 100%; }
-    .tab-row.returned { outline: 2px solid var(--ds-color-brand); outline-offset: 4px; border-radius: var(--ds-radius-sm); }
+    main { max-width: 960px; margin: 0 auto; padding: var(--ds-space-5) var(--ds-space-4); }
+    h1 { margin: 0 0 var(--ds-space-2); font-size: var(--ds-font-size-xl); }
+    .sub { color: var(--ds-color-sub); margin: 0 0 var(--ds-space-5); }
+    .apps { display: grid; gap: var(--ds-space-4); grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    .ds-card[aria-current="true"] { border-color: var(--ds-color-brand); }
+    ol { margin: var(--ds-space-3) 0 0; padding-left: var(--ds-space-5); display: grid; gap: var(--ds-space-2); }
+    a { color: var(--ds-color-brand-text); }
   </style>
 </head>
 <body>
-  <!-- 보기 전환 — 리뷰 도구. 제품 화면이 아니다. 브랜드·테마 고르는 칸은 theme.js 가 붙인다. -->
   <div id="view">
     <a href="../">← 목록</a>
     <a href="../spec.html?slug=app-structure">명세 읽기</a>
-    <label>역할 <select id="role"></select></label>
-    <label>상태 <select id="state"></select></label>
   </div>
 
   <main>
-    <header>
-      <h1 id="title">앱 구조</h1>
-      <p class="sub">메뉴 정본은 <code>shell.js</code> 의 <code>APPS</code> 하나다. 이 지도는 그걸 읽어 그린다 — 메뉴를 여기 다시 적지 않는다.</p>
-    </header>
-
-    <section aria-labelledby="map-h">
-      <h2 id="map-h">사이트맵 — <span id="app-name"></span></h2>
-      <p class="sub" id="tab-count"></p>
-      <div id="access-note" class="ds-notice access-note" hidden></div>
-      <ul class="tree" id="tree" data-testid="sitemap"></ul>
-    </section>
-
-    <section aria-labelledby="cmp-h">
-      <h2 id="cmp-h">두 앱 비교</h2>
-      <p class="sub">고른 브랜드와 상관없이 두 앱의 탭을 나란히 보여 준다.</p>
-      <div class="compare" id="compare"></div>
-    </section>
-
-    <section aria-labelledby="rule-h" class="ds-card">
-      <h2 id="rule-h">이동 규칙</h2>
-      <ul class="rules">
-        <li><strong>로그인이 필요한 탭</strong>을 비로그인이 누르면 화면을 바꾸지 않고 <strong>로그인 시트</strong>를 띄운다. 로그인을 마치면 <strong>누른 탭으로 돌아간다</strong>. 시트를 닫으면 원래 화면에 그대로 있다.</li>
-        <li>책숲(독자 앱)에서 홈·모임은 로그인 없이 둘러본다. 교환·챌린지·내 서재는 로그인이 필요하다.</li>
-        <li>책숲 파트너는 첫 화면부터 로그인이 필요하다. 사장님·직원 계정이 아니면 "서점 등록 신청" 으로 보낸다.</li>
-        <li><strong>정산 탭은 사장님만 보인다.</strong> 직원에게는 잠근 탭이 아니라 <strong>탭 자체를 숨긴다</strong> — 볼 수 없는 메뉴로 탭 자리를 쓰지 않는다. 화면에서 숨기는 것과 별개로 서버가 정산 조회를 막는다.</li>
-        <li>운영자는 앱이 아니라 어드민에서 조회한다. 여기서는 모든 탭이 보이지만 조회마다 감사 기록이 남는다.</li>
-        <li>탭은 앱마다 <strong>최대 <span id="tab-max"></span>개</strong>. 늘리려면 이 구조 프로토타입부터 바꾼다.</li>
-        <li>탭을 누르면 그 탭의 첫 화면으로 간다. 뒤로 가기는 탭 안의 이전 화면으로, 탭 첫 화면에서는 앱을 나간다.</li>
-      </ul>
-    </section>
+    <h1>앱 구조</h1>
+    <p class="sub">두 앱의 탭과 그 아래 화면. 이 목록은 <code>shell.js</code> 의 <code>APPS</code> 를 그대로 읽는다 — 거기를 고치면 여기와 모든 화면의 메뉴가 같이 바뀐다.</p>
+    <div class="apps" id="apps"></div>
   </main>
 
-  <div class="sheet-back" id="sheet" hidden data-act="close-sheet">
-    <div class="sheet ds-card" role="dialog" aria-modal="true" aria-labelledby="sheet-h">
-      <h3 id="sheet-h">로그인이 필요해요</h3>
-      <p id="sheet-body" class="sub"></p>
-      <button class="ds-btn ds-btn--primary" data-act="login">로그인하고 계속하기</button>
-      <button class="ds-btn" data-act="close-sheet">닫기</button>
-    </div>
-  </div>
-
   <script>
-    // 숫자는 여기 한 곳 — SPEC.md 「결정」과 같은 값.
-    const NUM = { TAB_MAX: 5 };
-    const ROLES = { guest: "비로그인", reader: "독자", owner: "사장님", staff: "직원", admin: "운영자" };
-    const STATES = { normal: "기본", "login-sheet": "로그인 시트 열림" };
-
-    // 접근 규칙만 여기 둔다(메뉴 자체는 shell.js APPS). 없는 탭 id 는 "open" 으로 본다.
-    // open = 누구나 · login = 로그인 필요(비로그인은 잠금) · partner = 사장님·직원·운영자 · owner = 사장님·운영자(그 외 숨김)
-    const ACCESS = {
-      reader: { swap: "login", challenge: "login", shelf: "login" },
-      partner: { dashboard: "partner", club: "partner", stock: "partner", settlement: "owner" },
+    const draw = () => {
+      const { APPS } = window.APP_STRUCTURE;
+      const current = document.documentElement.dataset.brand;
+      document.getElementById("apps").innerHTML = Object.entries(APPS).map(([code, app]) => `
+        <section class="ds-card" aria-current="${code === current}">
+          <strong>${app.name}</strong> <span class="ds-tag">탭 ${app.nav.length}개</span>
+          <ol>${app.nav.map((n) => `<li>${n.icon} ${n.label}${(n.slugs ?? []).map((s) => ` → <a href="../${s}/">${s}</a>`).join("")}</li>`).join("")}</ol>
+        </section>`).join("");
     };
-    const PARTNER_ROLES = ["owner", "staff", "admin"];
-
-    const view = { role: "guest", state: "normal", returnTo: null };
-    const $ = (id) => document.getElementById(id);
-    const fill = (el, opts, cur) => {
-      el.innerHTML = Object.entries(opts).map(([v, t]) => `<option value="${v}"${v === cur ? " selected" : ""}>${t}</option>`).join("");
-    };
-
-    const brand = () => (document.documentElement.dataset.brand === "partner" ? "partner" : "reader");
-
-    // 탭 하나가 지금 역할에게 어떻게 보이나: open / locked(로그인 시트) / denied(파트너 아님) / hidden(숨김)
-    const accessOf = (b, tabId, role) => {
-      const rule = ACCESS[b][tabId] ?? "open";
-      if (rule === "open") return "open";
-      if (role === "guest") return "locked";
-      if (rule === "login") return "open";
-      if (!PARTNER_ROLES.includes(role)) return "denied";
-      if (rule === "owner" && role === "staff") return "hidden";
-      return "open";
-    };
-
-    const sharedSlugs = (apps) => {
-      const sets = Object.values(apps).map((a) => new Set(a.nav.flatMap((n) => n.slugs ?? [])));
-      return new Set([...sets[0]].filter((s) => sets.every((set) => set.has(s))));
-    };
-
-    const ACCESS_TAG = {
-      open: "",
-      locked: '<span class="ds-tag">🔒 로그인 필요</span>',
-      denied: '<span class="ds-tag ds-tag--danger">파트너 계정만</span>',
-      hidden: '<span class="ds-tag">숨김 — 이 역할에게 안 보임</span>',
-    };
-
-    const screenCard = (slug, shared, access) => `
-      <article class="screen ds-card">
-        <h3>${slug}</h3>
-        <div class="tags">${shared.has(slug) ? '<span class="ds-tag ds-tag--brand">두 앱 공통</span>' : ""}</div>
-        <div class="links">
-          ${access === "locked"
-            ? `<button class="ds-btn ds-btn--sm" data-act="open-login" data-tab="${slug}">화면 보기</button>`
-            : `<a class="ds-btn ds-btn--sm" href="../${slug}/">화면 보기</a>`}
-          <a class="ds-btn ds-btn--sm" href="../spec.html?slug=${slug}">명세</a>
-        </div>
-      </article>`;
-
-    const hubCard = (n, access) => `
-      <article class="screen ds-card">
-        <h3>${n.label} (목록)</h3>
-        <p class="sub">탭 첫 화면 — 기능 목록으로 간다</p>
-        <div class="links">
-          ${access === "locked"
-            ? `<button class="ds-btn ds-btn--sm" data-act="open-login" data-tab="${n.id}">화면 보기</button>`
-            : `<a class="ds-btn ds-btn--sm" href="${n.href}">화면 보기</a>`}
-        </div>
-      </article>`;
-
-    const renderTree = (APPS) => {
-      const b = brand();
-      const app = APPS[b];
-      const shared = sharedSlugs(APPS);
-      $("app-name").textContent = app.name;
-      $("title").textContent = `앱 구조 — ${app.name}`;
-
-      const rows = app.nav.map((n) => ({ n, access: accessOf(b, n.id, view.role) }));
-      const visible = rows.filter((r) => r.access !== "hidden").length;
-      $("tab-count").textContent = `탭 ${app.nav.length}개 (상한 ${NUM.TAB_MAX}) · ${ROLES[view.role]}에게 보이는 탭 ${visible}개`;
-
-      $("tree").innerHTML = rows.map(({ n, access }) => `
-        <li class="tab-row${view.returnTo === n.id ? " returned" : ""}" data-tab-id="${n.id}" data-access="${access}">
-          <div class="tab-head">
-            <span class="icon" aria-hidden="true">${n.icon}</span>
-            <h3>${n.label}</h3>
-            ${ACCESS_TAG[access]}
-            ${access === "locked" ? `<button class="ds-btn ds-btn--sm" data-act="open-login" data-tab="${n.id}">탭 누르기</button>` : ""}
-          </div>
-          ${access === "hidden" ? '<p class="sub">직원에게는 이 탭이 없다. 정산은 사장님만 본다.</p>' : `
-          <div class="screens">${n.slugs ? n.slugs.map((s) => screenCard(s, shared, access)).join("") : hubCard(n, access)}</div>`}
-        </li>`).join("");
-
-      const note = $("access-note");
-      const denied = rows.some((r) => r.access === "denied");
-      note.hidden = !denied;
-      note.innerHTML = denied
-        ? `<span>독자 계정으로는 책숲 파트너를 쓸 수 없어요. 서점을 운영하신다면 등록을 신청해 주세요.</span>
-           <a class="ds-btn" href="../">서점 등록 신청</a>`
-        : "";
-    };
-
-    const renderCompare = (APPS) => {
-      const shared = sharedSlugs(APPS);
-      $("compare").innerHTML = Object.entries(APPS).map(([code, app]) => `
-        <div class="ds-card" data-compare="${code}">
-          <h3>${app.name} <span class="ds-tag">${code}</span> <span class="ds-tag">탭 ${app.nav.length}/${NUM.TAB_MAX}</span></h3>
-          <ol>${app.nav.map((n) => `<li>${n.icon} ${n.label}${(n.slugs ?? []).map((s) => ` · <a href="../${s}/">${s}</a>${shared.has(s) ? ' <span class="ds-tag ds-tag--brand">두 앱 공통</span>' : ""}`).join("")}${ACCESS[code][n.id] === "owner" ? ' <span class="ds-tag">사장님만</span>' : ""}</li>`).join("")}</ol>
-        </div>`).join("");
-    };
-
-    const tabLabel = (id) => {
-      const app = window.APP_STRUCTURE.APPS[brand()];
-      const n = app.nav.find((t) => t.id === id || t.slugs?.includes(id));
-      return n ? n.label : id;
-    };
-
-    const render = () => {
-      const S = window.APP_STRUCTURE;
-      if (!S) return;
-      if (view.state === "login-sheet" && !view.pending) {
-        const first = S.APPS[brand()].nav.find((n) => accessOf(brand(), n.id, view.role) === "locked");
-        view.pending = first ? first.id : null;
-      }
-      const sheetOn = view.state === "login-sheet" && view.role === "guest" && view.pending;
-      $("sheet").hidden = !sheetOn;
-      if (sheetOn) $("sheet-body").textContent = `로그인하면 「${tabLabel(view.pending)}」(으)로 바로 돌아가요. 닫으면 지금 화면에 그대로 있어요.`;
-      renderTree(S.APPS);
-      renderCompare(S.APPS);
-    };
-
-    const setState = (s) => { view.state = s; $("state").value = s; };
-    const setRole = (r) => { view.role = r; $("role").value = r; };
-
-    $("tab-max").textContent = NUM.TAB_MAX;
-    fill($("role"), ROLES, view.role);
-    fill($("state"), STATES, view.state);
-    $("role").addEventListener("change", (e) => { setRole(e.target.value); view.returnTo = null; render(); });
-    $("state").addEventListener("change", (e) => { view.pending = null; setState(e.target.value); render(); });
-
-    document.addEventListener("click", (e) => {
-      const el = e.target.closest("[data-act]");
-      if (!el) return;
-      const act = el.dataset.act;
-      if (act === "close-sheet" && e.target !== el) return; // 시트 안쪽 클릭은 배경 닫기로 치지 않는다
-      if (act === "open-login") { view.pending = el.dataset.tab; view.returnTo = null; setState("login-sheet"); }
-      if (act === "close-sheet") { view.pending = null; setState("normal"); }
-      if (act === "login") {
-        const back = window.APP_STRUCTURE.APPS[brand()].nav.find((n) => n.id === view.pending || n.slugs?.includes(view.pending));
-        setRole(brand() === "partner" ? "owner" : "reader");
-        view.returnTo = back ? back.id : null;
-        view.pending = null;
-        setState("normal");
-      }
-      render();
-    });
-
-    // shell.js 는 defer 라 DOMContentLoaded 뒤에야 APP_STRUCTURE 가 있다.
-    document.addEventListener("DOMContentLoaded", render);
-    document.addEventListener("ds:change", () => { view.pending = null; view.returnTo = null; render(); });
+    document.addEventListener("DOMContentLoaded", draw);
+    document.addEventListener("ds:change", draw);
   </script>
 </body>
 </html>

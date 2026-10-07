@@ -19,9 +19,8 @@
       nav: [
         { id: "home", label: "홈", icon: "⌂", href: "../" },
         { id: "club", label: "모임", icon: "☕", slugs: ["book-club"] },
-        { id: "swap", label: "교환", icon: "⇄", slugs: ["book-swap"] },
         { id: "challenge", label: "챌린지", icon: "✓", slugs: ["reading-challenge"] },
-        { id: "shelf", label: "내 서재", icon: "♡", slugs: ["restock-alert"] },
+        { id: "me", label: "내 서재", icon: "♡", href: "#" },
       ],
     },
     partner: {
@@ -29,8 +28,7 @@
       nav: [
         { id: "dashboard", label: "대시보드", icon: "▦", href: "../" },
         { id: "club", label: "모임 운영", icon: "☕", slugs: ["book-club"] },
-        { id: "stock", label: "입고", icon: "▤", slugs: ["restock-alert"] },
-        { id: "settlement", label: "정산", icon: "₩", slugs: ["settlement"] },
+        { id: "store", label: "내 서점", icon: "▤", href: "#" },
       ],
     },
   };
