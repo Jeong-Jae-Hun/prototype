@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>앱 구조</title>
+  <script src="../design-system/theme.js" data-brands="reader partner"></script>
+  <link rel="stylesheet" href="../design-system/tokens.css">
+  <link rel="stylesheet" href="../design-system/components.css">
+  <script src="../app-structure/shell.js" data-active="app-structure" defer></script>
+  <style>
+    main { max-width: 960px; margin: 0 auto; padding: var(--ds-space-5) var(--ds-space-4); }
+    h1 { margin: 0 0 var(--ds-space-2); font-size: var(--ds-font-size-xl); }
+    .sub { color: var(--ds-color-sub); margin: 0 0 var(--ds-space-5); }
+    .apps { display: grid; gap: var(--ds-space-4); grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    .ds-card[aria-current="true"] { border-color: var(--ds-color-brand); }
+    ol { margin: var(--ds-space-3) 0 0; padding-left: var(--ds-space-5); display: grid; gap: var(--ds-space-2); }
+    a { color: var(--ds-color-brand-text); }
+  </style>
+</head>
+<body>
+  <div id="view">
+    <a href="../">← 목록</a>
+    <a href="../spec.html?slug=app-structure">명세 읽기</a>
+  </div>
+
+  <main>
+    <h1>앱 구조</h1>
+    <p class="sub">두 앱의 탭과 그 아래 화면. 이 목록은 <code>shell.js</code> 의 <code>APPS</code> 를 그대로 읽는다 — 거기를 고치면 여기와 모든 화면의 메뉴가 같이 바뀐다.</p>
+    <div class="apps" id="apps"></div>
+  </main>
+
+  <script>
+    const draw = () => {
+      const { APPS } = window.APP_STRUCTURE;
+      const current = document.documentElement.dataset.brand;
+      document.getElementById("apps").innerHTML = Object.entries(APPS).map(([code, app]) => `
+        <section class="ds-card" aria-current="${code === current}">
+          <strong>${app.name}</strong> <span class="ds-tag">탭 ${app.nav.length}개</span>
+          <ol>${app.nav.map((n) => `<li>${n.icon} ${n.label}${(n.slugs ?? []).map((s) => ` → <a href="../${s}/">${s}</a>`).join("")}</li>`).join("")}</ol>
+        </section>`).join("");
+    };
+    document.addEventListener("DOMContentLoaded", draw);
+    document.addEventListener("ds:change", draw);
+  </script>
+</body>
+</html>
