@@ -4,6 +4,7 @@
 확정된 다음에 기획·디자인·개발이 병렬로 진행한다. 이 레포는 그 방식을 실제로 돌려 보는 예시다.
 
 👉 **확정본 목록: https://prototype.dotdotslash.me/** — 화면을 눌러 보고, "명세 읽기"로 규칙을 본다.
+🎤 이 방식을 소개하는 발표 대본: [`docs/presentation-script.md`](docs/presentation-script.md)
 
 ---
 
@@ -203,6 +204,7 @@ scripts/
 .github/workflows/        PR 미리보기 배포 (gh-pages 브랜치)
 .claude/skills/           /prototype · /prototype-pr
 AGENTS.md                 이 레포의 규칙 (AI 도구도 읽는다)
+docs/presentation-script.md  이 방식을 소개하는 발표 대본
 ```
 
 ### 미리보기는 어떻게 돌아가나
