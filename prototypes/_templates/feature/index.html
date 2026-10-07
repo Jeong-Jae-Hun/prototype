@@ -36,7 +36,8 @@
     const ROLES = { guest: "비로그인", reader: "독자", owner: "사장님", admin: "운영자" };
     const STATES = { initial: "처음" };
 
-    const view = { role: "reader", state: "initial" };
+    // 두 앱에 다 나오는 화면이면 브랜드에 맞는 역할로 시작한다(파트너 → 사장님). 화면 비교가 기본 역할로 찍는다.
+    const view = { role: document.documentElement.dataset.brand === "partner" ? "owner" : "reader", state: "initial" };
     const fill = (el, opts, cur) => {
       el.innerHTML = Object.entries(opts).map(([v, t]) => `<option value="${v}"${v === cur ? " selected" : ""}>${t}</option>`).join("");
     };
