@@ -38,6 +38,7 @@ test("명세 문자열을 그대로 HTML 에 넣지 않는다", () => {
   const html = render([{ slug: "x", title: "<script>alert(1)</script>", status: "초안", owners: "" }], { heading: "확정본", linkPrefix: "", specPrefix: "" });
   assert.ok(!html.includes("<script>alert"));
   assert.ok(html.includes('href="x/"'));
+  assert.ok(html.includes('href="spec.html?slug=x"'));
 });
 
 test("목록이 비면 빈 상태를 보인다", () => {
