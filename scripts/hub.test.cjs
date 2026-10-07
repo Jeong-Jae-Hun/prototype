@@ -18,7 +18,7 @@ function fixture(dirs) {
 }
 
 test("SPEC.md 머리에서 제목·상태·담당을 읽는다", () => {
-  assert.deepEqual(readSpec(spec("팬 챗", "검토 중")), { title: "팬 챗", status: "검토 중", owners: "기획 @a · 개발 @b" });
+  assert.deepEqual(readSpec(spec("북클럽", "검토 중")), { title: "북클럽", status: "검토 중", owners: "기획 @a · 개발 @b" });
 });
 
 test("_ 폴더와 index.html 없는 폴더는 빼고, 검토 중 → 초안 → 확정 → 그 밖 순서로 늘어놓는다", () => {
