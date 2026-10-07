@@ -10,6 +10,7 @@ argument-hint: <slug> <한 줄 설명...>
 
 1. 워킹트리에 미커밋 변경이 있으면 멈추고 묻는다.
 2. `git switch -c proto/<slug> origin/main` 후 `cp -r prototypes/_template prototypes/<slug>`.
+   `index.html` 보기 전환 바의 `spec.html?slug=<slug>`를 실제 폴더 이름으로 바꾼다.
 3. `index.html`에 정상 시나리오 하나를 끝까지 클릭으로 따라갈 수 있게 만든다. 보기 전환 바(역할·상태)를 채우고,
    숫자는 파일 위쪽 `NUM` 한 곳에 모은다. 가짜 데이터만 쓴다 — 이 레포는 공개다.
 4. 화면을 다 만든 뒤 "이 화면에서 안 보이는 규칙"을 스스로 찾아 `SPEC.md`를 채운다 —

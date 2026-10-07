@@ -4,7 +4,7 @@
 #   PR 닫힘       → gh-pages/pr-<번호>/ 삭제
 #   main push     → gh-pages/ 루트        (확정본 목록 + 각 프로토타입)
 #
-# 목록 페이지는 scripts/hub.cjs 가 각 SPEC.md 머리에서 만든다. SPEC.md 자체는 올리지 않는다.
+# 목록 페이지는 scripts/hub.cjs 가 각 SPEC.md 머리에서 만든다. SPEC.md 도 같이 올려 spec.html 이 읽어 그린다.
 name: preview
 
 on:
@@ -61,13 +61,13 @@ jobs:
           elif [ "$EVENT" = push ]; then
             node src/scripts/hub.cjs src/prototypes "확정본" "" "$SPEC_PREFIX" > src/prototypes/index.html
             # 루트에는 PR 미리보기 폴더·도메인 파일이 같이 산다 — --delete 가 그걸 지우지 않게 보호한다.
-            rsync -a --delete --exclude '*.md' --exclude '_*' \
+            rsync -a --delete --exclude '_*' \
               --filter 'P pr-*/' --filter 'P CNAME' --filter 'P .nojekyll' --filter 'P .git' \
               src/prototypes/ site/
           else
             node src/scripts/hub.cjs src/prototypes "PR #$PR 미리보기" "" "$SPEC_PREFIX" > src/prototypes/index.html
             mkdir -p "site/pr-$PR"
-            rsync -a --delete --exclude '*.md' --exclude '_*' src/prototypes/ "site/pr-$PR/"
+            rsync -a --delete --exclude '_*' src/prototypes/ "site/pr-$PR/"
           fi
           echo prototype.dotdotslash.me > site/CNAME
           touch site/.nojekyll
@@ -99,7 +99,7 @@ jobs:
                 .map((p) => p[1]),
             )].sort();
             const row = (s) =>
-              `| \`${s}\` | ${base}/${s}/ | [SPEC.md](https://github.com/${owner}/${repo}/blob/${pr.head.sha}/prototypes/${s}/SPEC.md) |`;
+              `| \`${s}\` | ${base}/${s}/ | ${base}/spec.html?slug=${s} |`;
 
             const body = closed
               ? `${MARK}\n### 프로토타입 미리보기\nPR이 닫혀 미리보기를 지웠다.${pr.merged ? " 확정본: https://prototype.dotdotslash.me/" : ""}`

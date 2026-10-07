@@ -47,7 +47,12 @@ function render(items, { heading, linkPrefix, specPrefix }) {
           <span class="title">${esc(it.title || it.slug)}</span>
           <span class="slug">${esc(it.slug)}</span>
         </a>
-        <div class="meta">${esc(it.owners)}${specPrefix ? ` · <a href="${esc(specPrefix)}/${esc(it.slug)}/SPEC.md">명세</a>` : ""}</div>
+        <div class="links">
+          <a class="btn" href="${esc(linkPrefix)}${esc(it.slug)}/">화면 보기</a>
+          <a class="btn" href="${esc(linkPrefix)}spec.html?slug=${esc(it.slug)}">명세 읽기</a>
+          ${specPrefix ? `<a class="sub" href="${esc(specPrefix)}/${esc(it.slug)}/SPEC.md">GitHub</a>` : ""}
+        </div>
+        <div class="meta">${esc(it.owners)}</div>
       </li>`)
     .join("");
   return `<!doctype html>
@@ -74,12 +79,15 @@ function render(items, { heading, linkPrefix, specPrefix }) {
     .status[data-status="확정"] { background: rgba(80, 200, 140, 0.18); color: #8fe3b8; }
     .status[data-status="검토 중"] { background: rgba(137, 86, 251, 0.2); color: #d0bdff; }
     .empty { color: #9a9aab; }
+    .links { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+    .btn { display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; border-radius: 12px; background: #23232e; text-decoration: none; font-size: 14px; }
+    .sub { color: #9a9aab; font-size: 13px; }
   </style>
 </head>
 <body>
   <main>
     <h1>프로토타입 · ${esc(heading)}</h1>
-    <p>버리는 화면이다. 규칙은 명세가 정본이다. 프로토타입과 명세가 어긋나면 명세가 맞다.</p>
+    <p>화면은 버리는 프로토타입이고, 규칙은 명세가 정본이다. 둘이 어긋나면 명세가 맞다. 처음이면 <a href="https://github.com/Jeong-Jae-Hun/prototype#readme">사용법</a>부터.</p>
     ${items.length ? `<ul>${rows}</ul>` : `<div class="empty">아직 프로토타입이 없다.</div>`}
   </main>
 </body>
