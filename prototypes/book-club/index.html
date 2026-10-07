@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>북클럽 모임</title>
+  <!-- 순서가 중요하다: 테마(색 결정) → 토큰·컴포넌트 → 셸 -->
+  <script src="../design-system/theme.js" data-brands="reader partner"></script>
+  <link rel="stylesheet" href="../design-system/tokens.css">
+  <link rel="stylesheet" href="../design-system/components.css">
+  <script src="../app-structure/shell.js" data-active="book-club" defer></script>
+  <style>
+    main { max-width: 960px; margin: 0 auto; padding: var(--ds-space-5) var(--ds-space-4); display: flex; flex-direction: column; gap: var(--ds-space-4); }
+    [hidden] { display: none !important; }
+    h1 { font-size: var(--ds-font-size-xl); margin: 0; }
+    h2 { font-size: var(--ds-font-size-lg); margin: 0; }
+    p { margin: 0; }
+    .sub { color: var(--ds-color-sub); font-size: var(--ds-font-size-sm); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--ds-space-4); }
+    .stack { display: flex; flex-direction: column; gap: var(--ds-space-3); }
+    .row { display: flex; align-items: center; justify-content: space-between; gap: var(--ds-space-3); flex-wrap: wrap; }
+    .tags { display: flex; gap: var(--ds-space-1); flex-wrap: wrap; }
+    .cover { width: 100%; aspect-ratio: 3 / 2; border-radius: var(--ds-radius-sm); background: var(--ds-color-placeholder); }
+    .head { display: flex; align-items: center; justify-content: space-between; gap: var(--ds-space-3); flex-wrap: wrap; }
+    .amounts { display: grid; grid-template-columns: 1fr auto; gap: var(--ds-space-2) var(--ds-space-4); margin: 0; }
+    .amounts dt { color: var(--ds-color-sub); }
+    .amounts dd { margin: 0; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .amounts .total { border-top: 1px solid var(--ds-color-line); padding-top: var(--ds-space-2); }
+    .actions { display: flex; gap: var(--ds-space-2); flex-wrap: wrap; }
+    .actions > .ds-btn { flex: 1 1 160px; }
+    .flash { padding: var(--ds-space-3); border-radius: var(--ds-radius-md); background: var(--ds-color-brand-soft); color: var(--ds-color-brand-text); font-weight: 600; }
+    .warn { color: var(--ds-color-warning); font-size: var(--ds-font-size-sm); }
+    .err { color: var(--ds-color-danger); font-size: var(--ds-font-size-sm); }
+    .people { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+    .people li { display: flex; align-items: center; gap: var(--ds-space-3); min-height: var(--ds-tap); padding: var(--ds-space-2) 0; border-bottom: 1px solid var(--ds-color-line); }
+    .people li > .name { flex: 1; min-width: 0; }
+    .people input[type="checkbox"] { width: 22px; height: 22px; }
+    .form { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--ds-space-3); }
+    #view button { background: transparent; color: inherit; border: 1px dashed currentColor; border-radius: 6px; padding: 2px 8px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div id="view">
+    <a href="../">← 목록</a>
+    <a href="../spec.html?slug=book-club">명세 읽기</a>
+    <label>역할 <select id="role"></select></label>
+    <label>상태 <select id="state"></select></label>
+    <button type="button" data-act="sim-leave" title="참가 확정자 한 명이 취소한 것처럼 만든다">시뮬: 참가자 1명 취소</button>
+  </div>
+
+  <main id="app"></main>
+
+  <script>
+    // 숫자는 여기 한 곳 — SPEC.md 「숫자」 절과 같은 값.
+    const NUM = {
+      balance: 12000,              // 지금 독자의 포인트 잔액(가짜)
+      cancelDeadlineHours: 48,     // 취소 마감 기본값 — 모임 시작 n시간 전
+      cancelDeadlineOptions: [24, 48, 72], // 사장님이 고를 수 있는 취소 마감
+      lateCancelRefundPct: 0,      // 마감 뒤 취소 환불률(%)
+      promoteCutoffHours: 3,       // 시작 n시간 전까지만 대기 승계
+      promotedGraceHours: 2,       // 마감 뒤 승계된 사람의 전액 환불 취소 유예
+      priorityRegularDays: 30,     // 단골 우선 신청 자격 — 단골 등록 n일 이상
+      priorityWindowHours: 24,     // 단골 우선 신청 창 — 일반 신청보다 n시간 먼저
+      waitlistMax: 10,             // 대기 상한
+      noShowLimit: 2,              // 노쇼 n회면
+      noShowWindowDays: 90,        //   최근 n일 안에
+      noShowBanDays: 30,           //   그 서점 모임 n일 신청 제한
+      attendanceEditHours: 24,     // 출석 마감 뒤 사장님·직원 정정 가능 시간
+      capMin: 2, capMax: 30,       // 정원 범위
+      feeMax: 20000, feeStep: 500, // 참가비 포인트 상한·단위
+      myRegularDays: 45,           // 지금 독자의 숲속책방 단골 등록 일수(가짜)
+    };
+    const ROLES = { guest: "비로그인", reader: "독자", regular: "단골", owner: "사장님", staff: "직원", admin: "운영자" };
+    const STATES = { open: "모집 중", full: "마감(대기 있음)", today: "모임 당일", ended: "종료", canceled: "취소됨" };
+    const READER_SIDE = ["guest", "reader", "regular"];
+    const PARTNER_SIDE = ["owner", "staff", "admin"];
+    const MY_STORE = "숲속책방";
+    const MY_NICK = "숲길";
+    const NICKS = ["책먼지", "밤산책", "연필깎이", "고요한독자", "새벽세시", "종이배", "초록잉크", "모과차", "느린걸음", "책갈피", "오늘의문장", "바람소리"];
+    const WEEK = "일월화수목금토";
+
+    const view = { role: "reader", state: "open" };
+    let db, ui;
+
+    // ─── 시나리오 ───
+    const person = (nick, i, extra = {}) => ({ nick, regular: i % 3 === 0, status: "confirmed", attended: null, noShows: i === 9 ? 1 : 0, appNo: `BC-${String(400 + i).padStart(4, "0")}`, ...extra });
+    const setup = (st) => {
+      const reader = READER_SIDE.includes(view.role);
+      const featured = { id: "c1", store: MY_STORE, book: "고양이가 읽는 시", author: "윤바다", when: new Date(2026, 9, 18, 15), cap: 12, fee: 5000, deadlineH: NUM.cancelDeadlineHours, status: "recruiting", people: [] };
+      const confirmedCount = st === "open" ? 9 : 12;
+      featured.people = NICKS.slice(0, confirmedCount).map((n, i) => person(n, i));
+      if (st === "full") featured.people.push(person("둥근안경", 20, { status: "waiting" }));
+      if (["today", "ended", "canceled"].includes(st) && reader && view.role !== "guest") {
+        featured.people[featured.people.length - 1] = person(MY_NICK, 11, { me: true, regular: view.role === "regular", paid: featured.fee });
+      }
+      if (st === "today") { featured.status = "today"; featured.when = new Date(2026, 9, 7, 19); }
+      if (st === "ended") {
+        featured.status = "ended"; featured.when = new Date(2026, 9, 4, 15); featured.closedAgoH = 3;
+        featured.people.forEach((p) => { p.attended = !["책갈피", "바람소리"].includes(p.nick); });
+      }
+      if (st === "canceled") { featured.status = "canceled"; featured.cancelReason = "진행자 사정"; }
+      const c2 = { id: "c2", store: "골목서점", book: "여름 끝의 도서관", author: "한서림", when: new Date(2026, 9, 25, 14), cap: 8, fee: 0, deadlineH: 24, status: "recruiting", priorityOpen: true, generalOpens: new Date(2026, 9, 8, 10), people: ["물결", "종이학", "늦은오후"].map((n, i) => person(n, i)) };
+      const c3 = { id: "c3", store: MY_STORE, book: "바다로 가는 문장들", author: "서윤슬", when: new Date(2026, 10, 1, 11), cap: 10, fee: 3000, deadlineH: 72, status: "recruiting", people: [...NICKS.slice(2, 12).map((n, i) => person(n, i + 2)), person("첫장", 30, { status: "waiting" })] };
+      db = { clubs: [featured, c2, c3], balance: NUM.balance, seq: 4 };
+      ui = { route: "list", id: null, flash: "", err: "", draft: null, reason: "" };
+    };
+
+    // ─── 계산 ───
+    const fmt = (n) => n.toLocaleString("ko-KR");
+    const pts = (n) => (n === 0 ? "무료" : `${fmt(n)}P`);
+    const when = (d) => `${d.getMonth() + 1}월 ${d.getDate()}일(${WEEK[d.getDay()]}) ${d.getHours() < 12 ? "오전" : "오후"} ${d.getHours() % 12 || 12}시`;
+    const minus = (d, h) => new Date(d.getTime() - h * 3600e3);
+    const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+    const club = (id) => db.clubs.find((c) => c.id === id);
+    const confirmed = (c) => c.people.filter((p) => p.status === "confirmed");
+    const waiting = (c) => c.people.filter((p) => p.status === "waiting");
+    const left = (c) => c.cap - confirmed(c).length;
+    const mine = (c) => c.people.find((p) => p.me);
+    const pastDeadline = (c) => c.status === "today" || view.state === "today";
+    const statusLabel = (c) => {
+      if (c.status === "canceled") return ["취소됨", "danger"];
+      if (c.status === "ended") return ["종료", ""];
+      if (c.status === "today") return ["모임 당일", "brand"];
+      if (left(c) <= 0) return [waiting(c).length ? `마감 · 대기 ${waiting(c).length}명` : "마감", ""];
+      if (c.priorityOpen) return ["단골 우선 신청 중", "brand"];
+      return [`모집 중 · ${left(c)}석 남음`, "success"];
+    };
+    const tag = ([t, k]) => `<span class="ds-tag${k ? ` ds-tag--${k}` : ""}">${t}</span>`;
+    const refundFor = (c, p) => {
+      if (p.status === "waiting") return 0;
+      if (p.promotedLate) return p.paid;
+      return pastDeadline(c) ? Math.floor((p.paid * NUM.lateCancelRefundPct) / 100) : p.paid;
+    };
+    const canPriority = () => view.role === "regular" && NUM.myRegularDays >= NUM.priorityRegularDays;
+
+    // ─── 대기 승계 — 확정자가 빠지면 대기 1순번부터 자동으로 ───
+    const promote = (c) => {
+      const notes = [];
+      while (left(c) > 0 && waiting(c).length) {
+        const next = waiting(c)[0];
+        if (next.me) {
+          if (db.balance < c.fee) { c.people = c.people.filter((p) => p !== next); notes.push(`포인트가 부족해 대기에서 빠졌어요 (필요 ${pts(c.fee)} · 잔액 ${fmt(db.balance)}P). 포인트를 채운 뒤 다시 신청해 주세요.`); continue; }
+          db.balance -= c.fee; next.paid = c.fee; next.promotedLate = pastDeadline(c);
+          notes.push(`🔔 알림: 「${c.book}」 자리가 확정됐어요. ${pts(c.fee)} 차감 (잔액 ${fmt(db.balance)}P).${next.promotedLate ? ` ${NUM.promotedGraceHours}시간 안에 취소하면 전액 환불돼요.` : ""}`);
+        }
+        next.status = "confirmed";
+      }
+      return notes.join(" ");
+    };
+
+    // ─── 독자 앱 ───
+    const readerList = () => `
+      <div class="head"><h1>모임</h1><span class="sub">내 포인트 ${view.role === "guest" ? "로그인 후 확인" : `${fmt(db.balance)}P`}</span></div>
+      <div class="grid">${db.clubs.map((c) => `
+        <article class="ds-card stack">
+          <div class="cover" aria-hidden="true"></div>
+          <div class="tags">${tag(statusLabel(c))}${mine(c) ? tag([mine(c).status === "waiting" ? `내 대기 ${waiting(c).indexOf(mine(c)) + 1}번` : "신청함", "brand"]) : ""}</div>
+          <h2>${esc(c.book)}</h2>
+          <p class="sub">${esc(c.author)} · ${esc(c.store)}</p>
+          <p class="sub">${when(c.when)} · 참가비 ${pts(c.fee)}</p>
+          <button class="ds-btn ds-btn--block" data-act="detail" data-id="${c.id}">자세히 보기</button>
+        </article>`).join("")}
+      </div>`;
+
+    const readerDetail = (c) => {
+      const me = mine(c);
+      const [st] = statusLabel(c);
+      const deadline = minus(c.when, c.deadlineH);
+      let action = "";
+      if (c.status === "canceled") {
+        action = `<p class="ds-notice">서점 사정(${esc(c.cancelReason)})으로 모임이 취소됐어요. ${me?.paid ? `참가비 ${pts(me.paid)}는 포인트로 전액 돌려드렸어요.` : ""}</p>
+          <button class="ds-btn ds-btn--primary ds-btn--block" data-act="back">다른 모임 보기</button>`;
+      } else if (c.status === "ended") {
+        action = me ? `<p class="ds-notice">${me.attended ? "출석으로 기록됐어요. 다음 모임에서 또 만나요." : "노쇼로 기록됐어요."} 이 서점에서 최근 ${NUM.noShowWindowDays}일 노쇼 ${me.noShows + (me.attended ? 0 : 1)}회 — ${NUM.noShowLimit}회가 되면 ${NUM.noShowBanDays}일 동안 이 서점 모임에 신청할 수 없어요.</p>
+          <p class="sub">기록이 틀렸다면 서점에 말해 주세요. 출석 마감 뒤 ${NUM.attendanceEditHours}시간 안에 서점이 고칠 수 있어요.</p>
+          <button class="ds-btn ds-btn--block" data-act="back">다른 모임 보기</button>`
+          : `<button class="ds-btn ds-btn--primary ds-btn--block" data-act="back">다른 모임 보기</button>`;
+      } else if (me) {
+        const isWait = me.status === "waiting";
+        action = `<div class="ds-notice">${isWait
+          ? `대기 ${waiting(c).indexOf(me) + 1}번이에요. 자리가 나면 순서대로 자동 확정되고 ${pts(c.fee)}가 그때 차감돼요. 시작 ${NUM.promoteCutoffHours}시간 전까지 자리가 안 나면 대기가 끝나요.`
+          : `${c.status === "today" ? "오늘이에요! " : ""}서점에서 신청 번호 <b>${me.appNo}</b>를 말해 주세요. 실명·연락처는 서점에 넘어가지 않아요.`}</div>
+          <button class="ds-btn ds-btn--danger ds-btn--block" data-act="ask-cancel">${isWait ? "대기 취소" : "신청 취소"}</button>`;
+      } else if (view.role !== "guest" && c.priorityOpen && !canPriority()) {
+        action = `<button class="ds-btn ds-btn--block" disabled>단골 우선 신청 중</button>
+          <p class="sub">일반 신청은 ${when(c.generalOpens)}에 열려요. 이 서점 단골 등록 ${NUM.priorityRegularDays}일 이상이면 먼저 신청할 수 있어요.</p>
+          <button class="ds-btn ds-btn--block" data-act="back">다른 모임 보기</button>`;
+      } else if (left(c) <= 0) {
+        action = waiting(c).length >= NUM.waitlistMax
+          ? `<p class="ds-notice">대기도 다 찼어요 (${NUM.waitlistMax}명).</p><button class="ds-btn ds-btn--block" data-act="back">다른 모임 보기</button>`
+          : `<button class="ds-btn ds-btn--primary ds-btn--block" data-act="apply">대기 등록 (지금 ${waiting(c).length}명 대기)</button>`;
+      } else {
+        action = `<button class="ds-btn ds-btn--primary ds-btn--block" data-act="apply">${c.priorityOpen ? "단골 우선 신청" : "신청하기"}</button>`;
+      }
+      return `
+        <button class="ds-btn ds-btn--sm" data-act="back">← 모임 목록</button>
+        <article class="ds-card stack">
+          <div class="cover" aria-hidden="true"></div>
+          <div class="tags">${tag(statusLabel(c))}${c.priorityOpen && canPriority() ? tag(["단골 우선 대상", "brand"]) : ""}</div>
+          <h1>${esc(c.book)}</h1>
+          <p class="sub">${esc(c.author)} · ${esc(c.store)}</p>
+          <dl class="amounts">
+            <dt>일시</dt><dd>${when(c.when)}</dd>
+            <dt>참가비</dt><dd>${pts(c.fee)}</dd>
+            <dt>자리</dt><dd>${confirmed(c).length} / ${c.cap}명</dd>
+            <dt>취소 마감</dt><dd>${when(deadline)}</dd>
+          </dl>
+          <p class="sub">취소 마감 전 취소는 전액, 마감 뒤 취소는 ${NUM.lateCancelRefundPct}% 환불이에요. 참가자 명단은 서점만 봐요.</p>
+          ${action}
+          <button class="ds-btn ds-btn--sm" data-act="report" data-roles="reader regular">이 모임 신고</button>
+        </article>`;
+    };
+
+    const readerConfirm = (c) => {
+      const isWait = left(c) <= 0;
+      const after = db.balance - c.fee;
+      const short = after < 0;
+      return `
+        <button class="ds-btn ds-btn--sm" data-act="detail" data-id="${c.id}">← 모임 정보</button>
+        <section class="ds-card stack">
+          <h1>${isWait ? "대기 등록 확인" : "신청 확인"}</h1>
+          <p>${esc(c.book)} · ${when(c.when)}</p>
+          <dl class="amounts">
+            <dt>참가비</dt><dd>${pts(c.fee)}</dd>
+            <dt>지금 잔액</dt><dd>${fmt(db.balance)}P</dd>
+            <dt class="total">${isWait ? "자리 확정 때 남는 잔액" : "차감 후 잔액"}</dt><dd class="total">${c.fee ? `${fmt(after)}P` : "차감 없음"}</dd>
+          </dl>
+          <ul class="sub">
+            ${isWait ? `<li>지금은 차감하지 않아요. 자리가 나면 대기 순서대로 자동 확정되고 그때 ${pts(c.fee)}가 차감돼요. 알림으로 알려 드려요.</li>
+            <li>그때 잔액이 모자라면 확정되지 않고 다음 순번으로 넘어가요.</li>` : ""}
+            <li>${when(minus(c.when, c.deadlineH))}까지 취소하면 전액, 그 뒤에는 ${NUM.lateCancelRefundPct}% 환불이에요.</li>
+            <li>출석하지 않으면 노쇼로 기록돼요. 이 서점에서 ${NUM.noShowWindowDays}일 안에 ${NUM.noShowLimit}회면 ${NUM.noShowBanDays}일 신청 제한.</li>
+          </ul>
+          ${short ? `<p class="err">포인트가 ${fmt(-after)}P 모자라요.</p>` : ""}
+          <div class="actions">
+            <button class="ds-btn" data-act="detail" data-id="${c.id}">돌아가기</button>
+            ${short ? `<button class="ds-btn ds-btn--primary" data-act="points">내 포인트 보기</button>`
+              : `<button class="ds-btn ds-btn--primary" data-act="do-apply">${isWait ? "동의하고 대기 등록" : c.fee ? `${pts(c.fee)} 내고 신청` : "무료로 신청"}</button>`}
+          </div>
+        </section>`;
+    };
+
+    const readerCancel = (c) => {
+      const me = mine(c);
+      const refund = refundFor(c, me);
+      return `
+        <section class="ds-card stack">
+          <h1>${me.status === "waiting" ? "대기를 취소할까요?" : "신청을 취소할까요?"}</h1>
+          <p>${esc(c.book)} · ${when(c.when)}</p>
+          ${me.status === "waiting" ? `<p class="sub">대기 중이라 차감된 포인트가 없어요.</p>` : `
+          <dl class="amounts">
+            <dt>낸 참가비</dt><dd>${pts(me.paid)}</dd>
+            <dt>돌려받는 포인트</dt><dd>${fmt(refund)}P</dd>
+            <dt class="total">취소 후 잔액</dt><dd class="total">${fmt(db.balance + refund)}P</dd>
+          </dl>
+          ${refund < me.paid ? `<p class="warn">취소 마감(${when(minus(c.when, c.deadlineH))})이 지나 ${NUM.lateCancelRefundPct}%만 돌려드려요. 그래도 미리 취소하면 노쇼로 기록되지 않고 대기자에게 자리가 넘어가요.</p>` : ""}
+          ${me.promotedLate ? `<p class="sub">마감 뒤 대기에서 확정돼서 ${NUM.promotedGraceHours}시간 안 취소는 전액 환불이에요.</p>` : ""}`}
+          <div class="actions">
+            <button class="ds-btn" data-act="detail" data-id="${c.id}">유지하기</button>
+            <button class="ds-btn ds-btn--danger" data-act="do-cancel">취소하기</button>
+          </div>
+        </section>`;
+    };
+
+    const loginGate = () => `
+      <section class="ds-card ds-empty">
+        <h2>로그인하면 신청할 수 있어요</h2>
+        <p>모임 신청·대기·취소는 책숲 계정으로 해요.</p>
+        <button class="ds-btn ds-btn--primary" data-act="login">로그인</button>
+        <button class="ds-btn" data-act="back">모임 둘러보기</button>
+      </section>`;
+
+    // ─── 파트너 앱 ───
+    const partnerList = () => {
+      const own = db.clubs.filter((c) => view.role === "admin" || c.store === MY_STORE);
+      return `
+        <div class="head"><h1>${view.role === "admin" ? "모임 운영 보기" : `${MY_STORE} 모임`}</h1>
+          ${view.role !== "admin" ? `<button class="ds-btn ds-btn--primary" data-act="create">모임 개설</button>` : ""}</div>
+        ${view.role === "admin" ? `<p class="ds-notice">운영자 화면이에요. 명단 열람·강제 취소는 감사 기록(누가·언제·무엇·사유)에 남아요. 노쇼 기준값은 어드민 › 모임 설정에서 바꿔요 (지금 ${NUM.noShowWindowDays}일 ${NUM.noShowLimit}회 → ${NUM.noShowBanDays}일 제한).</p>` : ""}
+        ${own.length ? `<div class="grid">${own.map((c) => `
+          <article class="ds-card stack">
+            <div class="tags">${tag(statusLabel(c))}${view.role === "admin" ? tag([esc(c.store), ""]) : ""}</div>
+            <h2>${esc(c.book)}</h2>
+            <p class="sub">${when(c.when)} · 참가비 ${pts(c.fee)}</p>
+            <div class="ds-progress" aria-label="정원 ${c.cap}명 중 ${confirmed(c).length}명"><span style="width:${Math.min(100, (confirmed(c).length / c.cap) * 100)}%"></span></div>
+            <p class="sub">확정 ${confirmed(c).length}/${c.cap} · 대기 ${waiting(c).length}</p>
+            <button class="ds-btn ds-btn--block" data-act="detail" data-id="${c.id}">명단·출석</button>
+          </article>`).join("")}</div>`
+          : `<div class="ds-card ds-empty"><p>아직 연 모임이 없어요.</p><button class="ds-btn ds-btn--primary" data-act="create">첫 모임 개설</button></div>`}`;
+    };
+
+    const partnerDetail = (c) => {
+      const canEditAtt = c.status === "today" || (c.status === "ended" && c.closedAgoH < NUM.attendanceEditHours);
+      const attMode = view.role !== "admin" && canEditAtt;
+      const list = (arr, waitList) => arr.length ? `<ul class="people">${arr.map((p, i) => `
+        <li>
+          ${attMode && !waitList ? `<input type="checkbox" aria-label="${esc(p.nick)} 출석" data-act="att" data-nick="${esc(p.nick)}"${p.attended ? " checked" : ""}>` : `<span class="ds-avatar ds-avatar--sm" aria-hidden="true"></span>`}
+          <span class="name">${waitList ? `${i + 1}. ` : ""}${esc(p.nick)}</span>
+          <span class="tags">${p.regular ? tag(["단골", "brand"]) : ""}${p.noShows ? tag([`노쇼 ${p.noShows}`, "danger"]) : ""}${p.attended === true ? tag(["출석", "success"]) : ""}${p.attended === false && c.status === "ended" ? tag(["노쇼", "danger"]) : ""}</span>
+        </li>`).join("")}</ul>` : `<p class="sub">${waitList ? "대기자가 없어요." : "아직 신청자가 없어요. 서점 페이지 공지에 모임을 알려 보세요."}</p>`;
+      const canCancel = ["owner", "admin"].includes(view.role) && ["recruiting", "today"].includes(c.status);
+      return `
+        <button class="ds-btn ds-btn--sm" data-act="back">← 모임 목록</button>
+        <section class="ds-card stack">
+          <div class="tags">${tag(statusLabel(c))}</div>
+          <h1>${esc(c.book)}</h1>
+          <p class="sub">${when(c.when)} · 정원 ${c.cap}명 · 참가비 ${pts(c.fee)} · 취소 마감 시작 ${c.deadlineH}시간 전</p>
+          ${c.status === "canceled" ? `<p class="ds-notice">취소된 모임이에요 (${esc(c.cancelReason)}). 신청자 전원에게 포인트를 돌려줬어요.</p>` : ""}
+        </section>
+        <section class="ds-card stack">
+          <div class="head"><h2>${attMode ? "출석 체크" : "참가 확정"} (${confirmed(c).length}명)</h2>
+            ${c.status === "today" && view.role !== "admin" ? `<span class="sub">출석 ${confirmed(c).filter((p) => p.attended).length}명</span>` : ""}</div>
+          <p class="sub">닉네임만 보여요. 실명·연락처는 서점에 넘기지 않아요 — 현장에서는 신청 번호로 확인해요.</p>
+          ${list(confirmed(c), false)}
+          ${c.status === "today" && view.role !== "admin" ? `<button class="ds-btn ds-btn--primary ds-btn--block" data-act="ask-close">출석 마감</button>` : ""}
+          ${c.status === "ended" ? `<p class="sub">${canEditAtt && view.role !== "admin" ? `출석 마감 ${c.closedAgoH}시간 지남 — ${NUM.attendanceEditHours}시간 안에는 체크를 바꿔 노쇼를 고칠 수 있어요.` : "정정 기한이 지났어요. 고쳐야 하면 운영자에게 문의해 주세요."}</p>` : ""}
+        </section>
+        <section class="ds-card stack" ${c.status === "recruiting" ? "" : "hidden"}>
+          <h2>대기 (${waiting(c).length}명)</h2>
+          ${list(waiting(c), true)}
+          <p class="sub">참가자가 취소하면 1번부터 자동으로 확정되고 알림이 가요.</p>
+        </section>
+        ${canCancel ? `<button class="ds-btn ds-btn--danger ds-btn--block" data-act="ask-club-cancel">${view.role === "admin" ? "운영자 강제 취소" : "모임 취소"}</button>` : ""}
+        ${view.role === "staff" && ["recruiting", "today"].includes(c.status) ? `<p class="sub">모임 취소는 사장님만 할 수 있어요 (환불이 나가요). 사장님에게 요청해 주세요.</p>` : ""}`;
+    };
+
+    const partnerClose = (c) => {
+      const absent = confirmed(c).filter((p) => !p.attended);
+      return `
+        <section class="ds-card stack">
+          <h1>출석을 마감할까요?</h1>
+          <dl class="amounts"><dt>출석</dt><dd>${confirmed(c).length - absent.length}명</dd><dt>노쇼로 기록</dt><dd>${absent.length}명</dd></dl>
+          ${absent.length ? `<p class="sub">${absent.map((p) => esc(p.nick)).join(", ")}</p>` : ""}
+          <p class="sub">노쇼는 이 서점 기록에만 남아요. ${NUM.noShowWindowDays}일 안에 ${NUM.noShowLimit}회면 ${NUM.noShowBanDays}일 동안 이 서점 모임 신청이 막혀요. 마감 뒤 ${NUM.attendanceEditHours}시간 안에는 고칠 수 있어요.</p>
+          <div class="actions"><button class="ds-btn" data-act="detail" data-id="${c.id}">계속 체크</button><button class="ds-btn ds-btn--primary" data-act="do-close">마감하고 노쇼 처리</button></div>
+        </section>`;
+    };
+
+    const partnerClubCancel = (c) => {
+      const paid = confirmed(c).reduce((s, p) => s + (p.paid ?? c.fee), 0);
+      return `
+        <section class="ds-card stack">
+          <h1>모임을 취소할까요?</h1>
+          <dl class="amounts">
+            <dt>참가 확정</dt><dd>${confirmed(c).length}명</dd>
+            <dt>대기</dt><dd>${waiting(c).length}명</dd>
+            <dt class="total">돌려줄 포인트(전액)</dt><dd class="total">${fmt(paid)}P</dd>
+          </dl>
+          <p class="sub">서점이 취소하면 마감과 관계없이 전액 돌려줘요. 신청자·대기자 전원에게 알림이 가요. 되돌릴 수 없어요.</p>
+          <label class="ds-field">취소 사유 (신청자에게 보여요)
+            <input class="ds-input" data-field="reason" value="${esc(ui.reason)}" placeholder="예: 진행자 사정">
+            ${ui.err ? `<span class="ds-field__hint ds-field__hint--error">${ui.err}</span>` : ""}
+          </label>
+          <div class="actions"><button class="ds-btn" data-act="detail" data-id="${c.id}">돌아가기</button><button class="ds-btn ds-btn--danger" data-act="do-club-cancel">${fmt(paid)}P 환불하고 취소</button></div>
+        </section>`;
+    };
+
+    const partnerCreate = () => {
+      const d = ui.draft;
+      return `
+        <button class="ds-btn ds-btn--sm" data-act="back">← 모임 목록</button>
+        <section class="ds-card stack">
+          <h1>모임 개설</h1>
+          <div class="form">
+            <label class="ds-field">책 제목<input class="ds-input" data-field="book" value="${esc(d.book)}" placeholder="ISBN 검색 또는 제목"></label>
+            <label class="ds-field">일시<input class="ds-input" type="datetime-local" data-field="date" value="${d.date}"></label>
+            <label class="ds-field">정원<input class="ds-input" type="number" data-field="cap" value="${d.cap}" min="${NUM.capMin}" max="${NUM.capMax}"><span class="ds-field__hint">${NUM.capMin}~${NUM.capMax}명</span></label>
+            <label class="ds-field">참가비 (포인트)<input class="ds-input" type="number" data-field="fee" value="${d.fee}" min="0" max="${NUM.feeMax}" step="${NUM.feeStep}"><span class="ds-field__hint">0이면 무료 · 최대 ${fmt(NUM.feeMax)}P · ${NUM.feeStep}P 단위</span></label>
+            <label class="ds-field">취소 마감<select class="ds-input" data-field="deadlineH">${NUM.cancelDeadlineOptions.map((h) => `<option value="${h}"${+d.deadlineH === h ? " selected" : ""}>모임 ${h}시간 전</option>`).join("")}</select></label>
+          </div>
+          <p class="sub">단골(등록 ${NUM.priorityRegularDays}일 이상)은 일반 신청보다 ${NUM.priorityWindowHours}시간 먼저 신청할 수 있어요.</p>
+          ${ui.err ? `<p class="err">${ui.err}</p>` : ""}
+          <div class="actions"><button class="ds-btn" data-act="back">취소</button><button class="ds-btn ds-btn--primary" data-act="do-create">모임 열기</button></div>
+        </section>`;
+    };
+
+    const wrongSide = (toPartner) => `
+      <section class="ds-card ds-empty">
+        <h2>${toPartner ? "이 역할은 책숲 파트너에서 봐요" : "책숲 파트너는 서점 사장님·직원 앱이에요"}</h2>
+        <p>${toPartner ? "모임 개설·명단·출석은 파트너 앱에 있어요." : "모임 둘러보기·신청은 책숲 앱에서 해요."}</p>
+        <button class="ds-btn ds-btn--primary" data-act="brand" data-to="${toPartner ? "partner" : "reader"}">${toPartner ? "책숲 파트너로 보기" : "책숲으로 보기"}</button>
+      </section>`;
+
+    // ─── 그리기 ───
+    const render = () => {
+      const brand = document.documentElement.dataset.brand;
+      const flash = ui.flash ? `<p class="flash" role="status">${ui.flash}</p>` : "";
+      let body;
+      if (brand === "reader" && PARTNER_SIDE.includes(view.role)) body = wrongSide(true);
+      else if (brand === "partner" && READER_SIDE.includes(view.role)) body = wrongSide(false);
+      else if (brand === "reader") {
+        const c = club(ui.id);
+        body = ui.route === "login" ? loginGate()
+          : ui.route === "confirm" ? readerConfirm(c)
+          : ui.route === "cancel" ? readerCancel(c)
+          : ui.route === "detail" ? readerDetail(c) : readerList();
+      } else {
+        const c = club(ui.id);
+        body = ui.route === "create" ? partnerCreate()
+          : ui.route === "close" ? partnerClose(c)
+          : ui.route === "club-cancel" ? partnerClubCancel(c)
+          : ui.route === "detail" ? partnerDetail(c) : partnerList();
+      }
+      app.innerHTML = flash + body;
+      app.querySelectorAll("[data-roles]").forEach((el) => { el.hidden = !el.dataset.roles.split(" ").includes(view.role); });
+    };
+    const go = (route, extra = {}) => { Object.assign(ui, { route, flash: "", err: "" }, extra); render(); document.documentElement.scrollTop = 0; };
+
+    // ─── 동작 — data-act 위임 ───
+    const ACTS = {
+      back: () => go("list", { id: null }),
+      detail: (el) => go("detail", { id: el.dataset.id }),
+      login: () => { view.role = "reader"; role.value = "reader"; go(ui.id ? "detail" : "list"); },
+      report: () => { ui.flash = "공통 신고 화면으로 이동해요 (프로토타입에서는 생략)."; render(); },
+      points: () => { ui.flash = "포인트 내역 화면으로 이동해요 (프로토타입에서는 생략)."; render(); },
+      brand: (el) => { const s = document.querySelector('select[data-ds="brand"]'); s.value = el.dataset.to; s.dispatchEvent(new Event("change", { bubbles: true })); },
+      apply: () => go(view.role === "guest" ? "login" : "confirm"),
+      "do-apply": () => {
+        const c = club(ui.id);
+        const isWait = left(c) <= 0;
+        const p = person(MY_NICK, 11, { me: true, regular: view.role === "regular", status: isWait ? "waiting" : "confirmed", paid: isWait ? 0 : c.fee });
+        if (!isWait) db.balance -= c.fee;
+        c.people.push(p);
+        go("detail", { flash: isWait ? `대기 ${waiting(c).length}번으로 등록했어요. 자리가 나면 알림으로 알려 드려요.` : `신청했어요. ${c.fee ? `${pts(c.fee)} 차감 · 잔액 ${fmt(db.balance)}P` : "무료 모임이에요."}` });
+      },
+      "ask-cancel": () => go("cancel"),
+      "do-cancel": () => {
+        const c = club(ui.id); const me = mine(c);
+        const refund = refundFor(c, me);
+        db.balance += refund;
+        c.people = c.people.filter((p) => p !== me);
+        const wasConfirmed = me.status === "confirmed";
+        if (wasConfirmed) promote(c);
+        go("detail", { flash: `취소했어요.${refund ? ` ${fmt(refund)}P 돌려드렸어요.` : ""}${wasConfirmed && waiting(c).length + confirmed(c).length ? " 대기 중인 분께 자리가 넘어가요." : ""}` });
+      },
+      "sim-leave": () => {
+        const c = club("c1");
+        if (!c || !["recruiting", "today"].includes(c.status)) { ui.flash = "시뮬: 모집 중·마감·당일 상태에서만 돼요."; render(); return; }
+        const leaver = confirmed(c).find((p) => !p.me);
+        if (!leaver) return;
+        c.people = c.people.filter((p) => p !== leaver);
+        const note = promote(c);
+        ui.flash = note || `시뮬: 「${c.book}」 참가자 1명이 취소했어요.${waiting(c).length ? "" : " 대기자가 없어 자리가 다시 열렸어요."}`;
+        render();
+      },
+      create: () => go("create", { draft: { book: "", date: "2026-10-30T19:00", cap: 10, fee: 0, deadlineH: NUM.cancelDeadlineHours } }),
+      "do-create": () => {
+        const d = ui.draft;
+        const cap = +d.cap; const fee = +d.fee;
+        ui.err = !d.book.trim() ? "책 제목을 넣어 주세요."
+          : !d.date ? "일시를 골라 주세요."
+          : !(cap >= NUM.capMin && cap <= NUM.capMax) ? `정원은 ${NUM.capMin}~${NUM.capMax}명이에요.`
+          : !(fee >= 0 && fee <= NUM.feeMax && fee % NUM.feeStep === 0) ? `참가비는 0~${fmt(NUM.feeMax)}P, ${NUM.feeStep}P 단위예요.` : "";
+        if (ui.err) { render(); return; }
+        const id = `c${db.seq++}`;
+        db.clubs.unshift({ id, store: MY_STORE, book: d.book.trim(), author: "—", when: new Date(d.date), cap, fee, deadlineH: +d.deadlineH, status: "recruiting", priorityOpen: true, generalOpens: new Date(), people: [] });
+        go("detail", { id, flash: `모임을 열었어요. 단골은 지금부터, 일반 독자는 ${NUM.priorityWindowHours}시간 뒤부터 신청할 수 있어요.` });
+      },
+      att: (el) => { const p = confirmed(club(ui.id)).find((x) => x.nick === el.dataset.nick); p.attended = el.checked; render(); },
+      "ask-close": () => go("close"),
+      "do-close": () => {
+        const c = club(ui.id);
+        confirmed(c).forEach((p) => { p.attended = !!p.attended; });
+        c.status = "ended"; c.closedAgoH = 0;
+        go("detail", { flash: `출석을 마감했어요. 노쇼 ${confirmed(c).filter((p) => !p.attended).length}명을 기록했어요.` });
+      },
+      "ask-club-cancel": () => go("club-cancel", { reason: "" }),
+      "do-club-cancel": () => {
+        const c = club(ui.id);
+        if (!ui.reason.trim()) { ui.err = "취소 사유를 적어 주세요. 신청자에게 그대로 보여요."; render(); return; }
+        const total = confirmed(c).reduce((s, p) => s + (p.paid ?? c.fee), 0);
+        c.status = "canceled"; c.cancelReason = ui.reason.trim();
+        go("detail", { flash: `모임을 취소했어요. ${confirmed(c).length}명에게 ${fmt(total)}P를 돌려주고 알림을 보냈어요.${view.role === "admin" ? " 감사 기록에 남았어요." : ""}` });
+      },
+    };
+    document.addEventListener("click", (e) => {
+      const el = e.target.closest("[data-act]");
+      if (!el || el.disabled || el.type === "checkbox") return;
+      ACTS[el.dataset.act]?.(el);
+    });
+    app.addEventListener("change", (e) => { if (e.target.dataset.act === "att") ACTS.att(e.target); });
+    app.addEventListener("input", (e) => {
+      const f = e.target.dataset.field;
+      if (!f) return;
+      if (f === "reason") ui.reason = e.target.value; else ui.draft[f] = e.target.value;
+    });
+
+    // ─── 보기 전환 ───
+    const fill = (el, opts, cur) => {
+      el.innerHTML = Object.entries(opts).map(([v, t]) => `<option value="${v}"${v === cur ? " selected" : ""}>${t}</option>`).join("");
+    };
+    fill(role, ROLES, view.role);
+    fill(state, STATES, view.state);
+    const reset = () => {
+      setup(view.state);
+      // 리뷰어가 상태를 고르면 그 상태의 주 모임 상세로 바로 간다 (모집 중은 목록부터)
+      if (view.state !== "open") { ui.route = "detail"; ui.id = "c1"; }
+      render();
+    };
+    role.onchange = () => { view.role = role.value; reset(); };
+    state.onchange = () => { view.state = state.value; reset(); };
+    document.addEventListener("ds:change", render);
+    reset();
+  </script>
+</body>
+</html>

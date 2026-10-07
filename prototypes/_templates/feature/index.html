@@ -4,19 +4,23 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>프로토타입</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <!-- 순서가 중요하다: 테마(색 결정) → 토큰·컴포넌트 → 셸. data-brands·data-active 를 이 화면에 맞게 고친다 -->
+  <script src="../design-system/theme.js" data-brands="reader"></script>
+  <link rel="stylesheet" href="../design-system/tokens.css">
+  <link rel="stylesheet" href="../design-system/components.css">
+  <script src="../app-structure/shell.js" data-active="<slug>" defer></script>
   <style>
-    body { margin: 0; font-family: Pretendard, system-ui, sans-serif; background: #0b0b10; color: #f4f4f6; }
-    #view { position: sticky; top: 0; display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 16px; background: #1b1b24; font-size: 13px; }
-    main { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+    /* 이 화면에만 필요한 배치만 쓴다. 색은 --ds-color-* 만, 버튼·카드·태그는 components.css 의 .ds-* 를 쓴다 */
+    main { max-width: 960px; margin: 0 auto; padding: var(--ds-space-5) var(--ds-space-4); }
     [hidden] { display: none !important; }
   </style>
 </head>
 <body>
-  <!-- 보기 전환 — 명세의 권한 표·상태 변화 표를 눈으로 대조하는 장치. 프로토타입 화면의 일부가 아니다. -->
+  <!-- 보기 전환 — 명세의 권한 표·상태 변화 표를 눈으로 대조하는 장치. 제품 화면이 아니다.
+       브랜드·테마 고르는 칸은 theme.js 가 여기에 붙인다. -->
   <div id="view">
-    <a href="../" style="color:#c9b3ff">← 목록</a>
-    <a href="../spec.html?slug=<slug>" style="color:#c9b3ff">명세 읽기</a>
+    <a href="../">← 목록</a>
+    <a href="../spec.html?slug=<slug>">명세 읽기</a>
     <label>역할 <select id="role"></select></label>
     <label>상태 <select id="state"></select></label>
   </div>
@@ -29,10 +33,10 @@
   <script>
     // 숫자는 여기 한 곳 — SPEC.md 「숫자」 절과 같은 값.
     const NUM = {};
-    const ROLES = { guest: "비로그인", self: "본인", other: "타인", owner: "채널 주인", admin: "운영자" };
+    const ROLES = { guest: "비로그인", reader: "독자", owner: "사장님", admin: "운영자" };
     const STATES = { initial: "처음" };
 
-    const view = { role: "self", state: "initial" };
+    const view = { role: "reader", state: "initial" };
     const fill = (el, opts, cur) => {
       el.innerHTML = Object.entries(opts).map(([v, t]) => `<option value="${v}"${v === cur ? " selected" : ""}>${t}</option>`).join("");
     };
