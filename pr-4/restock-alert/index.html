@@ -76,7 +76,8 @@
     const WAITING = { soldout: 0, subscribed: 14, restocked: 5, resoldout: 11, expired: 2 }; // 파트너가 보는 "기다리는 독자" 수
     const OTHER_SUBS = 6; // 이 책 말고 이미 구독 중인 책 수
 
-    const view = { role: "reader", state: "soldout", atLimit: false };
+    // 브랜드에 맞는 역할로 시작한다 — 파트너 앱을 독자로 열면 "앱이 다르다" 안내만 보인다(화면 비교도 그걸 찍는다).
+    const view = { role: document.documentElement.dataset.brand === "partner" ? "owner" : "reader", state: "soldout", atLimit: false };
     let ui = {};
     const resetUi = () => {
       ui = { panel: null, scope: "store", reserved: false, unsubscribed: false, justSubscribed: false, query: "", found: false, qty: 3, preview: false, registered: false };

@@ -79,7 +79,8 @@
     const NICKS = ["책먼지", "밤산책", "연필깎이", "고요한독자", "새벽세시", "종이배", "초록잉크", "모과차", "느린걸음", "책갈피", "오늘의문장", "바람소리"];
     const WEEK = "일월화수목금토";
 
-    const view = { role: "reader", state: "open" };
+    // 브랜드에 맞는 역할로 시작한다 — 파트너 앱을 독자로 열면 "앱이 다르다" 안내만 보인다(화면 비교도 그걸 찍는다).
+    const view = { role: document.documentElement.dataset.brand === "partner" ? "owner" : "reader", state: "open" };
     let db, ui;
 
     // ─── 시나리오 ───
