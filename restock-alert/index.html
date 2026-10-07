@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>입고 알림</title>
+  <!-- 순서가 중요하다: 테마(색 결정) → 토큰·컴포넌트 → 셸 -->
+  <script src="../design-system/theme.js" data-brands="reader partner"></script>
+  <link rel="stylesheet" href="../design-system/tokens.css">
+  <link rel="stylesheet" href="../design-system/components.css">
+  <script src="../app-structure/shell.js" data-active="restock-alert" defer></script>
+  <style>
+    main { max-width: 760px; margin: 0 auto; padding: var(--ds-space-5) var(--ds-space-4); display: flex; flex-direction: column; gap: var(--ds-space-4); }
+    [hidden] { display: none !important; }
+    h1 { font-size: var(--ds-font-size-xl); margin: 0; }
+    h2 { font-size: var(--ds-font-size-lg); margin: 0 0 var(--ds-space-2); }
+    p { margin: 0; }
+    .sub { color: var(--ds-color-sub); font-size: var(--ds-font-size-sm); }
+    .stack { display: flex; flex-direction: column; gap: var(--ds-space-3); }
+    .row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2); }
+    .book { display: flex; gap: var(--ds-space-3); align-items: flex-start; }
+    .cover { width: 56px; height: 80px; flex: none; border-radius: var(--ds-radius-sm); background: var(--ds-color-placeholder); }
+    .book__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--ds-space-2); }
+    .book__title { font-weight: 700; }
+    .actions { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); }
+    .actions .ds-btn { flex: 1 1 160px; }
+    .panel { border-top: 1px dashed var(--ds-color-line); padding-top: var(--ds-space-3); display: flex; flex-direction: column; gap: var(--ds-space-3); }
+    .choice { display: flex; gap: var(--ds-space-2); align-items: flex-start; padding: var(--ds-space-3); border: 1px solid var(--ds-color-line); border-radius: var(--ds-radius-md); min-height: var(--ds-tap); cursor: pointer; }
+    .choice[aria-disabled="true"] { opacity: 0.6; cursor: not-allowed; }
+    .choice input { margin-top: 3px; }
+    .sum { display: grid; grid-template-columns: 1fr auto; gap: var(--ds-space-1) var(--ds-space-3); font-size: var(--ds-font-size-sm); }
+    .sum b { text-align: right; }
+    .big { font-size: 32px; font-weight: 800; letter-spacing: var(--ds-tracking-display); color: var(--ds-color-brand-text); }
+    .push { background: var(--ds-color-surface-2); border-radius: var(--ds-radius-md); padding: var(--ds-space-3); font-size: var(--ds-font-size-sm); }
+    .warn { color: var(--ds-color-warning); }
+    .qty { display: flex; align-items: center; gap: var(--ds-space-2); }
+    .qty input { width: 88px; text-align: center; }
+    .grid2 { display: grid; gap: var(--ds-space-3); }
+    @media (min-width: 720px) { .grid2 { grid-template-columns: 1fr 1fr; } }
+  </style>
+</head>
+<body>
+  <!-- 보기 전환 — 리뷰 도구. 제품 화면이 아니다. 브랜드·테마 칸은 theme.js 가 붙인다. -->
+  <div id="view">
+    <a href="../">← 목록</a>
+    <a href="../spec.html?slug=restock-alert">명세 읽기</a>
+    <label>역할 <select id="role"></select></label>
+    <label>상태 <select id="state"></select></label>
+    <label><input type="checkbox" id="atLimit"> 구독 상한 도달</label>
+  </div>
+
+  <main id="app"></main>
+
+  <script>
+    // 숫자는 여기 한 곳 — SPEC.md 「숫자」 절과 같은 값.
+    const NUM = {
+      maxSubs: 20,            // 독자 1명이 동시에 구독할 수 있는 책 수 (운영)
+      expireDays: 30,         // 구독 만료 기간 (운영)
+      bundleMinutes: 10,      // 알림 묶음 간격 — 기존 규칙 재사용 (운영, 기존 값)
+      waveMultiplier: 3,      // 1차 발송 인원 = 입고 수량 × 이 값 (운영)
+      waveGapMinutes: 30,     // 다음 묶음 발송 간격 (운영)
+      minCountShown: 3,       // 이 수 미만이면 "3명 미만"으로만 보여 준다 (고정)
+      pickupHoldDays: 3,      // 픽업 기한 — 기존 주문·픽업 규정
+      posSyncPerDay: 2,       // POS 동기화 횟수 (제약)
+    };
+    const ROLES = { guest: "비로그인", reader: "독자", regular: "단골", owner: "사장님", staff: "직원", admin: "운영자" };
+    const STATES = { soldout: "품절(구독 전)", subscribed: "구독 중", restocked: "입고됨(알림 발송)", resoldout: "다시 품절", expired: "구독 만료" };
+
+    // 가짜 데이터
+    const BOOK = { title: "바람의 서재", author: "한여름", isbn: "979-11-0000-001-2", price: 16800, store: "골목서점" };
+    const MY_REGULARS = ["골목서점", "숲속책방", "모퉁이책방"]; // 단골 역할일 때만
+    const OTHER_BOOKS = [
+      { title: "밤의 정원사", author: "윤새벽", tag: "재고 있음 · 숲속책방 2권", kind: "success" },
+      { title: "느린 우체국", author: "문가을", tag: "구독 중 · 모퉁이책방", kind: "brand" },
+    ];
+    const WAITING = { soldout: 0, subscribed: 14, restocked: 5, resoldout: 11, expired: 2 }; // 파트너가 보는 "기다리는 독자" 수
+    const OTHER_SUBS = 6; // 이 책 말고 이미 구독 중인 책 수
+
+    // 브랜드에 맞는 역할로 시작한다 — 파트너 앱을 독자로 열면 "앱이 다르다" 안내만 보인다(화면 비교도 그걸 찍는다).
+    const view = { role: document.documentElement.dataset.brand === "partner" ? "owner" : "reader", state: "soldout", atLimit: false };
+    let ui = {};
+    const resetUi = () => {
+      ui = { panel: null, scope: "store", reserved: false, unsubscribed: false, justSubscribed: false, query: "", found: false, qty: 3, preview: false, registered: false };
+    };
+    resetUi();
+
+    const won = (n) => `${n.toLocaleString("ko-KR")}원`;
+    const brand = () => document.documentElement.dataset.brand;
+    const isRegular = () => view.role === "regular";
+    const subsUsed = () => (view.atLimit ? NUM.maxSubs : OTHER_SUBS) + (["subscribed", "resoldout"].includes(view.state) && !ui.unsubscribed ? 1 : 0);
+    const countLabel = (n) => (n === 0 ? "0명" : n < NUM.minCountShown ? `${NUM.minCountShown}명 미만` : `${n}명`);
+    const syncNote = `<p class="ds-notice">재고는 <b>오늘 오전 9시</b> 서점 POS 기준이에요 · 하루 ${NUM.posSyncPerDay}회(오전·오후) 동기화</p>`;
+
+    // ─── 공통 조각 ───
+    const adminCard = () => `
+      <section class="ds-card stack" aria-label="운영 설정">
+        <h2>입고 알림 운영 값 <span class="ds-tag">어드민 › 알림 설정</span></h2>
+        <div class="sum">
+          <span>구독 상한(독자 1명)</span><b>${NUM.maxSubs}권</b>
+          <span>구독 만료 기간</span><b>${NUM.expireDays}일</b>
+          <span>알림 묶음 간격(기존)</span><b>${NUM.bundleMinutes}분</b>
+          <span>1차 발송 배수</span><b>입고 수량 × ${NUM.waveMultiplier}</b>
+          <span>다음 묶음 간격</span><b>${NUM.waveGapMinutes}분</b>
+        </div>
+        <p class="sub">값을 바꾸면 감사 기록이 남아요 — 누가·언제·이전 값→이후 값·사유. 독자 신원은 운영자 화면에도 나오지 않아요(집계만).</p>
+        <div class="actions"><button class="ds-btn" data-act="noop">어드민에서 값 바꾸기</button></div>
+      </section>`;
+
+    const blocked = (title, body, btn, act) => `
+      <section class="ds-card"><div class="ds-empty">
+        <p><b>${title}</b></p><p>${body}</p>
+        <button class="ds-btn ds-btn--primary" data-act="${act}">${btn}</button>
+      </div></section>`;
+
+    // ─── 책숲(독자) — 내 서재 › 입고 알림 ───
+    const focusCard = () => {
+      const s = view.state;
+      const used = subsUsed();
+      const full = used >= NUM.maxSubs;
+      let status = "";
+      let body = "";
+
+      if (ui.reserved) {
+        status = `<span class="ds-tag ds-tag--success">✓ 픽업 예약됨</span>`;
+        body = `<p>주문 번호 <b>A-1042</b> · ${BOOK.store}에서 ${NUM.pickupHoldDays}일 안에 찾아가세요. 이 책의 입고 알림은 끝났어요.</p>
+          <div class="actions"><button class="ds-btn" data-act="noop">주문 내역 보기</button></div>`;
+      } else if (ui.unsubscribed) {
+        status = `<span class="ds-tag">구독 해지됨</span>`;
+        body = `<p class="sub">이제 입고돼도 알림이 오지 않아요. 구독 ${subsUsed()}/${NUM.maxSubs}</p>
+          <div class="actions"><button class="ds-btn" data-act="undo-unsub">다시 구독하기</button></div>`;
+      } else if (s === "soldout" || s === "expired") {
+        status = s === "soldout"
+          ? `<span class="ds-tag ds-tag--danger">품절 · ${BOOK.store}</span>`
+          : `<span class="ds-tag">구독 만료 · ${NUM.expireDays}일 지남</span>`;
+        const intro = s === "expired"
+          ? `<p class="sub">${NUM.expireDays}일 동안 입고되지 않아 알림 구독이 끝났어요. 다시 구독하면 대기 순서는 맨 뒤부터예요.</p>`
+          : `<p class="sub">입고되면 알려 드릴게요. 구독 ${used}/${NUM.maxSubs}</p>`;
+        const btn = full
+          ? `<button class="ds-btn ds-btn--primary" disabled>입고되면 알림</button>
+             <p class="ds-field__hint ds-field__hint--error">구독은 ${NUM.maxSubs}권까지예요. 다른 구독을 정리하면 다시 받을 수 있어요.</p>
+             <div class="actions"><button class="ds-btn" data-act="noop">구독 목록 정리하기</button></div>`
+          : `<div class="actions"><button class="ds-btn ds-btn--primary" data-act="open-sub">${s === "expired" ? "다시 구독하기" : "입고되면 알림"}</button></div>`;
+        body = intro + (ui.panel === "subscribe" ? subscribePanel() : btn);
+      } else if (s === "subscribed") {
+        status = `<span class="ds-tag ds-tag--brand">🔔 구독 중</span>`;
+        body = `${ui.justSubscribed ? `<p class="ds-notice">구독했어요. ${scopeText()}에 입고되면 알림을 보낼게요.</p>` : ""}
+          <p class="sub">${scopeText()} · 만료까지 ${ui.justSubscribed ? NUM.expireDays : 18}일 · 구독 ${used}/${NUM.maxSubs}</p>
+          ${ui.panel === "unsub" ? unsubPanel() : `<div class="actions"><button class="ds-btn ds-btn--danger" data-act="open-unsub">구독 해지</button></div>`}`;
+      } else if (s === "restocked") {
+        status = `<span class="ds-tag ds-tag--success">✓ 입고됨 · ${BOOK.store} 3권</span>`;
+        body = `<div class="push"><b>책숲 알림</b><br>찜한 책 2권이 입고됐어요 — '${BOOK.title}' 외 1권<br>
+            <span class="sub">${NUM.bundleMinutes}분 안에 들어온 입고 알림은 한 건으로 묶여요</span></div>
+          <p class="sub">오늘 오전 기준 수량이에요. 먼저 예약한 분이 가져가요.</p>
+          ${ui.panel === "reserve" ? reservePanel() : `<div class="actions"><button class="ds-btn ds-btn--primary" data-act="open-reserve">픽업 예약하기</button></div>`}`;
+      } else if (s === "resoldout") {
+        status = `<span class="ds-tag ds-tag--danger">다시 품절 · ${BOOK.store}</span>`;
+        body = `<p class="ds-notice">예약하기 전에 다시 품절됐어요 (오후 동기화 기준). <b>구독은 그대로 이어져요</b> — 다음 입고 때 다시 알려 드려요. 만료까지 12일.</p>
+          <p class="sub">구독 ${used}/${NUM.maxSubs}</p>
+          ${ui.panel === "unsub" ? unsubPanel() : `<div class="actions">
+            <button class="ds-btn ds-btn--primary" data-act="noop">다른 서점 재고 보기</button>
+            <button class="ds-btn ds-btn--danger" data-act="open-unsub">구독 해지</button></div>`}`;
+      }
+
+      return `<article class="ds-card book" data-book="focus">
+        <div class="cover" aria-hidden="true"></div>
+        <div class="book__body">
+          <div class="row"><span class="book__title">${BOOK.title}</span><span class="sub">${BOOK.author}</span></div>
+          <div class="row">${status}</div>
+          ${body}
+        </div>
+      </article>`;
+    };
+
+    const scopeText = () => (ui.scope === "regulars" ? `단골 서점 ${MY_REGULARS.length}곳 중 한 곳` : BOOK.store);
+
+    const subscribePanel = () => {
+      const canAll = isRegular();
+      return `<div class="panel" role="group" aria-label="알림 받을 서점">
+        <label class="choice"><input type="radio" name="scope" value="store" data-act="scope" ${ui.scope === "store" ? "checked" : ""}>
+          <span><b>${BOOK.store}만</b><br><span class="sub">이 서점에 들어오면 알려 드려요</span></span></label>
+        <label class="choice" aria-disabled="${!canAll}"><input type="radio" name="scope" value="regulars" data-act="scope" ${ui.scope === "regulars" ? "checked" : ""} ${canAll ? "" : "disabled"}>
+          <span><b>내 단골 서점 전체</b><br><span class="sub">${canAll ? `${MY_REGULARS.join("·")} 중 먼저 들어온 곳` : "단골 서점이 아직 없어요"}</span></span></label>
+        ${canAll ? "" : `<button class="ds-btn ds-btn--sm" data-act="noop">단골 서점 찾아보기</button>`}
+        <p class="sub">한 권에 구독 1개로 세요 · ${NUM.expireDays}일 동안 입고가 없으면 자동으로 끝나요 · 알림은 무료예요</p>
+        <div class="actions">
+          <button class="ds-btn" data-act="close">취소</button>
+          <button class="ds-btn ds-btn--primary" data-act="subscribe">알림 받기</button>
+        </div>
+      </div>`;
+    };
+
+    const unsubPanel = () => `<div class="panel">
+        <p>구독을 해지하면 지금까지의 대기 순서가 사라져요. 다시 구독하면 맨 뒤부터예요.</p>
+        <div class="actions">
+          <button class="ds-btn" data-act="close">그대로 두기</button>
+          <button class="ds-btn ds-btn--danger" data-act="unsubscribe">해지하기</button>
+        </div>
+      </div>`;
+
+    const reservePanel = () => `<div class="panel">
+        <h2>픽업 예약 — ${BOOK.store}</h2>
+        <div class="sum">
+          <span>${BOOK.title} 1권</span><b>${won(BOOK.price)}</b>
+          <span>포인트 사용</span><b>0P</b>
+          <span>결제 금액</span><b>${won(BOOK.price)}</b>
+        </div>
+        <p class="sub">지금 결제하고 ${NUM.pickupHoldDays}일 안에 찾아가세요. 기한이 지나면 자동 취소되고 전액 환불돼요. 서점에는 주문 번호만 전달돼요.</p>
+        <div class="actions">
+          <button class="ds-btn" data-act="close">닫기</button>
+          <button class="ds-btn ds-btn--primary" data-act="reserve">${won(BOOK.price)} 결제하고 예약</button>
+        </div>
+      </div>`;
+
+    const readerApp = () => {
+      if (view.role === "guest") return `<h1>내 서재</h1>` + blocked("로그인하면 찜한 책이 보여요", "품절된 책에 입고 알림을 걸어 둘 수 있어요.", "로그인하기", "login");
+      if (view.role === "admin") return `<h1>내 서재 · 입고 알림</h1>` + adminCard();
+      if (view.role === "owner" || view.role === "staff")
+        return `<h1>내 서재</h1>` + blocked("입고 등록은 책숲 파트너에서 해요", "서점 계정으로는 독자 입고 알림을 걸 수 없어요.", "책숲 파트너로 가기", "to-partner");
+      return `<div class="stack"><h1>내 서재</h1><p class="sub">찜한 책 3권 · 입고 알림 구독 ${subsUsed()}/${NUM.maxSubs}</p></div>
+        ${syncNote}
+        ${focusCard()}
+        ${OTHER_BOOKS.map((b) => `<article class="ds-card book"><div class="cover" aria-hidden="true"></div>
+          <div class="book__body"><div class="row"><span class="book__title">${b.title}</span><span class="sub">${b.author}</span></div>
+          <div class="row"><span class="ds-tag ds-tag--${b.kind}">${b.tag}</span></div>
+          ${b.kind === "success" ? `<div class="actions"><button class="ds-btn" data-act="noop">픽업 예약하기</button></div>` : ""}</div></article>`).join("")}`;
+    };
+
+    // ─── 책숲 파트너 — 입고 ───
+    const partnerApp = () => {
+      if (["guest", "reader", "regular"].includes(view.role))
+        return `<h1>입고</h1>` + blocked("서점 사장님·직원 계정으로 써요", "독자 계정으로는 파트너 앱을 쓸 수 없어요.", "책숲으로 가기", "to-reader");
+      if (view.role === "admin") return `<h1>입고</h1>` + adminCard();
+
+      const n = WAITING[view.state];
+      const s = view.state;
+      const statusLine = {
+        soldout: `<span class="ds-tag ds-tag--danger">품절</span>`,
+        subscribed: `<span class="ds-tag ds-tag--danger">품절</span>`,
+        restocked: `<span class="ds-tag ds-tag--success">✓ 오늘 입고 등록됨 3권</span>`,
+        resoldout: `<span class="ds-tag ds-tag--danger">다시 품절 · 오후 동기화</span>`,
+        expired: `<span class="ds-tag ds-tag--danger">품절</span>`,
+      }[s];
+
+      const found = ui.found ? `
+        <article class="ds-card book">
+          <div class="cover" aria-hidden="true"></div>
+          <div class="book__body">
+            <div class="row"><span class="book__title">${BOOK.title}</span><span class="sub">${BOOK.author} · ISBN ${BOOK.isbn}</span></div>
+            <div class="row">${statusLine}</div>
+            <div class="grid2">
+              <div class="stack"><span class="sub">이 책을 기다리는 독자</span><span class="big">${countLabel(n)}</span>
+                <span class="sub">누가 기다리는지는 보이지 않아요. 숫자만 알려 드려요.</span></div>
+              <label class="ds-field"><span>입고 수량</span>
+                <span class="qty"><button class="ds-btn ds-btn--sm" data-act="qty-" aria-label="하나 빼기">−</button>
+                <input class="ds-input" type="number" min="1" value="${ui.qty}" data-act="qty" aria-label="입고 수량">
+                <button class="ds-btn ds-btn--sm" data-act="qty+" aria-label="하나 더하기">+</button></span>
+                <span class="ds-field__hint">다음 POS 동기화(오후 3시)에서 실제 재고와 맞춰져요</span></label>
+            </div>
+            ${s === "restocked" ? `<p class="ds-notice">오전에 등록한 입고로 1차 9명에게 알림을 보냈어요. 남은 ${countLabel(n)}은 ${NUM.waveGapMinutes}분 뒤 재고가 남아 있으면 받아요.</p>` : ""}
+            ${s === "resoldout" ? `<p class="ds-notice">다시 품절돼 대기 중인 독자의 구독이 이어지고 있어요. 이번 입고로 다시 알림이 나가요.</p>` : ""}
+            ${s === "expired" ? `<p class="ds-notice">오래 입고가 없어 구독이 만료된 독자는 숫자에서 빠졌어요.</p>` : ""}
+            ${ui.registered ? doneBox(n) : ui.preview ? previewBox(n) : `<div class="actions"><button class="ds-btn ds-btn--primary" data-act="preview">입고 등록</button></div>`}
+          </div>
+        </article>` : `
+        <section class="ds-card"><div class="ds-empty">
+          <p>ISBN이나 책 제목으로 찾아 입고를 등록하세요.</p>
+          <p class="sub">ISBN이 없는 독립출판물은 서점 임시 코드로 찾을 수 있어요.</p>
+        </div></section>`;
+
+      return `<div class="stack"><h1>입고 등록</h1><p class="sub">${BOOK.store} · ${ROLES[view.role]}</p></div>
+        ${syncNote}
+        <form class="row" data-act="search" role="search">
+          <input class="ds-input" style="flex:1 1 220px" name="q" placeholder="ISBN 또는 제목 (예: ${BOOK.isbn})" value="${ui.query}" aria-label="ISBN 검색">
+          <button class="ds-btn ds-btn--primary" type="submit">검색</button>
+        </form>
+        ${found}`;
+    };
+
+    const waves = (n) => {
+      const first = Math.min(n, ui.qty * NUM.waveMultiplier);
+      return { first, rest: n - first };
+    };
+
+    const previewBox = (n) => {
+      const { first, rest } = waves(n);
+      return `<div class="panel">
+        <h2>알림 발송 미리보기</h2>
+        ${n === 0 ? `<p class="ds-notice">기다리는 독자가 없어 알림은 나가지 않아요. 재고만 ${ui.qty}권 늘어요.</p>` : `
+          <div class="push"><b>책숲 알림</b><br>${BOOK.store}에 '${BOOK.title}'이(가) 입고됐어요. 지금 픽업 예약할 수 있어요.</div>
+          <div class="sum">
+            <span>1차 발송 (먼저 구독한 순)</span><b>${countLabel(first)}</b>
+            <span>${NUM.waveGapMinutes}분 뒤 재고가 남으면</span><b>${countLabel(rest)}</b>
+          </div>
+          <p class="sub">같은 독자에게 ${NUM.bundleMinutes}분 안에 다른 입고 알림이 있으면 한 건으로 묶여요. 서점에는 독자 정보가 넘어오지 않아요.</p>`}
+        <div class="actions">
+          <button class="ds-btn" data-act="close">수량 고치기</button>
+          <button class="ds-btn ds-btn--primary" data-act="register">${n === 0 ? "입고 등록" : "입고 등록하고 알림 보내기"}</button>
+        </div>
+      </div>`;
+    };
+
+    const doneBox = (n) => {
+      const { first } = waves(n);
+      return `<div class="panel">
+        <p><b>✓ ${ui.qty}권 입고를 등록했어요.</b></p>
+        <p class="sub">${n === 0 ? "알림 대상 독자는 없어요." : `${countLabel(first)}에게 알림을 보내는 중이에요.`} 실제 재고는 다음 POS 동기화에서 확인돼요.</p>
+        <div class="actions"><button class="ds-btn" data-act="again">다른 책 입고 등록</button></div>
+      </div>`;
+    };
+
+    // ─── 그리기·이벤트 ───
+    const app = document.getElementById("app");
+    const render = () => { app.innerHTML = brand() === "partner" ? partnerApp() : readerApp(); };
+
+    const switchBrand = (b) => {
+      const sel = document.querySelector('select[data-ds="brand"]');
+      if (sel) { sel.value = b; sel.dispatchEvent(new Event("change", { bubbles: true })); }
+    };
+
+    const ACTIONS = {
+      noop: () => {},
+      login: () => { view.role = "reader"; role.value = "reader"; },
+      "to-partner": () => switchBrand("partner"),
+      "to-reader": () => switchBrand("reader"),
+      "open-sub": () => { ui.panel = "subscribe"; },
+      "open-unsub": () => { ui.panel = "unsub"; },
+      "open-reserve": () => { ui.panel = "reserve"; },
+      close: () => { ui.panel = null; ui.preview = false; },
+      subscribe: () => { ui.panel = null; ui.justSubscribed = true; view.state = "subscribed"; state.value = "subscribed"; },
+      unsubscribe: () => { ui.panel = null; ui.unsubscribed = true; },
+      "undo-unsub": () => { ui.unsubscribed = false; view.state = "soldout"; state.value = "soldout"; ui.panel = "subscribe"; },
+      reserve: () => { ui.panel = null; ui.reserved = true; },
+      "qty-": () => { ui.qty = Math.max(1, ui.qty - 1); },
+      "qty+": () => { ui.qty += 1; },
+      preview: () => { ui.preview = true; },
+      register: () => { ui.preview = false; ui.registered = true; },
+      again: () => { resetUi(); },
+    };
+
+    app.addEventListener("click", (e) => {
+      const el = e.target.closest("button[data-act]");
+      if (!el || el.disabled) return;
+      ACTIONS[el.dataset.act]?.();
+      render();
+    });
+    app.addEventListener("change", (e) => {
+      const el = e.target;
+      if (el.dataset.act === "scope") { ui.scope = el.value; render(); }
+      if (el.dataset.act === "qty") { ui.qty = Math.max(1, parseInt(el.value, 10) || 1); render(); }
+    });
+    app.addEventListener("submit", (e) => {
+      e.preventDefault();
+      ui.query = e.target.querySelector("[name=q]").value.trim() || BOOK.isbn; // 목업: 무엇을 넣어도 같은 책이 나온다
+      ui.found = true; ui.preview = false; ui.registered = false;
+      render();
+    });
+
+    const fill = (el, opts, cur) => {
+      el.innerHTML = Object.entries(opts).map(([v, t]) => `<option value="${v}"${v === cur ? " selected" : ""}>${t}</option>`).join("");
+    };
+    fill(role, ROLES, view.role);
+    fill(state, STATES, view.state);
+    role.onchange = () => { view.role = role.value; resetUi(); render(); };
+    state.onchange = () => { view.state = state.value; resetUi(); render(); };
+    atLimit.onchange = () => { view.atLimit = atLimit.checked; render(); };
+    document.addEventListener("ds:change", () => { resetUi(); render(); });
+    render();
+  </script>
+</body>
+</html>

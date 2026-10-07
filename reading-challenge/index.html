@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>독서 챌린지 — 프로토타입</title>
+  <!-- 순서가 중요하다: 테마(색 결정) → 토큰·컴포넌트 → 셸 -->
+  <script src="../design-system/theme.js" data-brands="reader"></script>
+  <link rel="stylesheet" href="../design-system/tokens.css">
+  <link rel="stylesheet" href="../design-system/components.css">
+  <script src="../app-structure/shell.js" data-active="reading-challenge" defer></script>
+  <style>
+    main { max-width: 960px; margin: 0 auto; padding: var(--ds-space-5) var(--ds-space-4); display: grid; gap: var(--ds-space-4); }
+    [hidden] { display: none !important; }
+    h1 { margin: 0; font-size: var(--ds-font-size-xl); }
+    h2 { margin: 0 0 var(--ds-space-3); font-size: var(--ds-font-size-lg); }
+    p { margin: 0; }
+    .row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2); }
+    .between { justify-content: space-between; }
+    .stack { display: grid; gap: var(--ds-space-3); }
+    .sub { color: var(--ds-color-sub); font-size: var(--ds-font-size-sm); }
+    .big { font-size: var(--ds-font-size-xl); font-weight: 800; }
+    .list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ds-space-3); }
+    .list > li { padding: var(--ds-space-3); border: 1px solid var(--ds-color-line); border-radius: var(--ds-radius-md); display: grid; gap: var(--ds-space-2); }
+    .photo { width: 72px; height: 96px; flex: none; border-radius: var(--ds-radius-sm); background: var(--ds-color-placeholder); display: flex; align-items: center; justify-content: center; color: var(--ds-color-sub); font-size: 12px; text-align: center; }
+    .photo--wide { width: 100%; height: 120px; }
+    .entry { display: flex; gap: var(--ds-space-3); align-items: flex-start; }
+    .entry > div { min-width: 0; display: grid; gap: var(--ds-space-1); }
+    .review { overflow-wrap: anywhere; }
+    .cols { display: grid; gap: var(--ds-space-4); }
+    @media (min-width: 900px) { .cols { grid-template-columns: 1.4fr 1fr; align-items: start; } }
+    .grid3 { display: grid; gap: var(--ds-space-3); grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+    .status { padding: var(--ds-space-3); border-radius: var(--ds-radius-md); background: var(--ds-color-brand-soft); color: var(--ds-color-brand-text); font-size: var(--ds-font-size-sm); }
+    .warn { border-left: 3px solid var(--ds-color-warning); }
+    .danger-text { color: var(--ds-color-danger); }
+    .done-line { text-decoration: line-through; color: var(--ds-color-sub); }
+    textarea.ds-input { min-height: 72px; resize: vertical; }
+    label.check { display: flex; align-items: center; gap: var(--ds-space-2); min-height: var(--ds-tap); }
+    .audit { font-family: ui-monospace, monospace; font-size: 12px; color: var(--ds-color-sub); overflow-wrap: anywhere; }
+  </style>
+</head>
+<body>
+  <!-- 보기 전환 — 명세의 권한 표·상태 변화 표를 눈으로 대조하는 장치. 제품 화면이 아니다. -->
+  <div id="view">
+    <a href="../">← 목록</a>
+    <a href="../spec.html?slug=reading-challenge">명세 읽기</a>
+    <label>역할 <select id="role"></select></label>
+    <label>상태 <select id="state"></select></label>
+    <button type="button" id="nextDay" data-view="next-day">하루 지나기</button>
+  </div>
+
+  <main id="app" aria-live="polite"></main>
+
+  <script>
+    // 숫자는 여기 한 곳 — SPEC.md 「숫자」 절과 같은 값.
+    const NUM = {
+      GOAL_BOOKS: 3,        // 달성 권수 (운영 조정)
+      REWARD_POINT: 300,    // 달성 보상 — 이벤트 지급분 포인트 (운영 조정)
+      DAILY_CAP: 2,         // 하루 인증 상한 (운영 조정)
+      REVIEW_MIN: 10,       // 한 줄 감상 최소 글자
+      REVIEW_MAX: 100,      // 한 줄 감상 최대 글자
+      REVIEW_DAYS: 3,       // 기간 종료 후 검수 기간(일) — 이 기간이 지나야 지급
+      PARTICIPANTS: 128,    // 가짜 집계
+      ACHIEVERS: 41,        // 가짜 집계
+    };
+    const CH = { title: "10월 챌린지 · 한 달에 3권", period: "10월 1일 ~ 10월 31일", payDay: "11월 3일", next: "11월 챌린지 · 11월 1일 시작" };
+
+    const ROLES = { guest: "비로그인", reader: "독자(참가 전)", participant: "참가자", admin: "운영자" };
+    const STATES = { before: "시작 전", ongoing: "진행 중", achieved: "달성", ended: "기간 종료(미달성)", rewarded: "보상 지급됨" };
+    // 챌린지 자체의 단계. 달성·지급은 참가자 개인 상태라, 참가자가 아닌 역할에는 챌린지 단계로 바꿔 보여 준다.
+    const PHASE = { before: "before", ongoing: "ongoing", achieved: "ongoing", ended: "ended", rewarded: "ended" };
+
+    const PREV_ISBN = ["9791100000012"]; // 지난 챌린지에서 인증한 책 (가짜)
+    const BOOKS = [
+      { isbn: "9791100000029", title: "숲의 시간", review: "나무 이야기인데 결국 사람 이야기라 오래 남았다." },
+      { isbn: "9791100000036", title: "골목 서점의 겨울", review: "작은 서점 사장님 일기. 따뜻하고 조금 쓸쓸했다." },
+      { isbn: "9791100000043", title: "밤의 도서관", review: "추리보다 분위기가 좋은 책. 밤에 읽기를 권한다." },
+    ];
+    const FEED = [
+      { id: "f1", nick: "느린독서가", title: "바다를 건너는 편지", review: "편지 형식이라 하루 한 통씩 아껴 읽었어요." },
+      { id: "f2", nick: "책갈피수집", title: "작은 부엌의 사계절", review: "레시피보다 문장이 맛있는 책이었어요." },
+    ];
+    const QUEUE = () => [
+      { id: "q1", nick: "밤독서", title: "숲의 시간", isbn: "9791100000029", review: "좋았다 좋았다 좋았다 좋았다", reason: "신고 2건 · 성의 없는 감상", count: 3, status: "open" },
+      { id: "q2", nick: "책숲산책", title: "골목의 시 (독립출판)", isbn: "", review: "동네 서점에서만 파는 시집. 표지부터 좋았다.", reason: "ISBN 없음 · 검수 대상", count: 2, status: "open" },
+    ];
+
+    const view = { role: "participant", state: "ongoing" };
+    let d; // 메모리 상태 — 새로고침하면 처음으로
+    const seed = () => {
+      const n = { before: 0, ongoing: 1, achieved: 3, ended: 1, rewarded: 3 }[view.state];
+      d = {
+        entries: BOOKS.slice(0, n).map((b, i) => ({ ...b, id: `e${i}`, open: i === 0, day: "어제" })),
+        today: 0, form: false, err: "", joinAsk: false, quitAsk: false, quit: false,
+        reported: {}, msg: "", queue: QUEUE(), cancelAsk: null, payAsk: false, paid: view.state === "rewarded",
+        settings: { GOAL_BOOKS: NUM.GOAL_BOOKS, REWARD_POINT: NUM.REWARD_POINT, DAILY_CAP: NUM.DAILY_CAP }, audit: [],
+      };
+    };
+
+    const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+    const won = (n) => `${n.toLocaleString("ko-KR")}P`;
+    const goal = () => d.settings.GOAL_BOOKS;
+    const reward = () => d.settings.REWARD_POINT;
+    const cap = () => d.settings.DAILY_CAP;
+    const fill = (el, opts, cur) => {
+      el.innerHTML = Object.entries(opts).map(([v, t]) => `<option value="${v}"${v === cur ? " selected" : ""}>${t}</option>`).join("");
+    };
+
+    // ─── 공통 조각 ───
+    const head = () => {
+      const ph = PHASE[view.state];
+      const tag = { before: '<span class="ds-tag">시작 전 · 10월 1일 시작</span>', ongoing: '<span class="ds-tag ds-tag--brand">진행 중 · 12일 남음</span>', ended: '<span class="ds-tag">기간 종료</span>' }[ph];
+      return `<section class="ds-card stack">
+        <div class="row between"><h1>${CH.title}</h1>${tag}</div>
+        <p class="sub">${CH.period} · 끝까지 읽은 책을 한 줄 감상과 함께 인증해요</p>
+        <div class="grid3">
+          <div><p class="sub">달성 조건</p><p class="big">${goal()}권</p></div>
+          <div><p class="sub">달성 보상</p><p class="big">${won(reward())}</p><p class="sub">이벤트 포인트 · 참가비 없음</p></div>
+          <div><p class="sub">함께하는 독자</p><p class="big">${NUM.PARTICIPANTS}명</p><p class="sub">달성 ${ph === "before" ? 0 : NUM.ACHIEVERS}명 · 순위는 공개하지 않아요</p></div>
+        </div>
+      </section>`;
+    };
+    const msg = () => (d.msg ? `<p class="status" role="status">${esc(d.msg)}</p>` : "");
+
+    // ─── 비로그인 · 독자(참가 전) ───
+    const outsider = () => {
+      const ph = PHASE[view.state];
+      if (ph === "ended") {
+        return `<section class="ds-card ds-empty"><p>10월 챌린지는 끝났어요. 다음 챌린지는 ${CH.next}이에요.</p>
+          <button class="ds-btn ds-btn--primary" data-act="${view.role === "guest" ? "login" : "notify"}">${view.role === "guest" ? "로그인하고 알림 받기" : "다음 챌린지 알림 받기"}</button></section>`;
+      }
+      if (view.role === "guest") {
+        return `<section class="ds-card stack"><p>참가하려면 로그인이 필요해요. 인증 기록은 기본으로 나만 볼 수 있어요.</p>
+          <button class="ds-btn ds-btn--primary ds-btn--block" data-act="login">로그인하고 참가하기</button></section>`;
+      }
+      if (d.joinAsk) {
+        return `<section class="ds-card stack"><h2>참가할까요?</h2>
+          <ul class="sub"><li>참가비 없음 · 포인트가 차감되지 않아요</li>
+          <li>${ph === "before" ? "10월 1일부터 " : ""}끝까지 읽은 책 ${goal()}권을 인증하면 ${won(reward())}(이벤트 포인트)를 받아요</li>
+          <li>하루 ${cap()}권까지 인증할 수 있고, 같은 책은 한 번만 인정돼요</li>
+          <li>중간에 그만두면 이번 챌린지에는 다시 참가할 수 없어요</li></ul>
+          <div class="row"><button class="ds-btn ds-btn--primary" data-act="join">참가하기</button><button class="ds-btn" data-act="join-cancel">취소</button></div></section>`;
+      }
+      return `<section class="ds-card stack"><p>${ph === "before" ? "미리 참가해 두면 10월 1일에 알림을 보내 드려요." : "지금 참가해도 이번 달 안에 읽은 책을 인증할 수 있어요."}</p>
+        <button class="ds-btn ds-btn--primary ds-btn--block" data-act="join-ask">챌린지 참가하기</button></section>`;
+    };
+
+    // ─── 참가자 ───
+    const live = () => d.entries.filter((e) => !e.cancelled);
+    const progress = () => {
+      const n = Math.min(live().length, goal());
+      const pct = Math.round((n / goal()) * 100);
+      return `<div class="stack"><div class="row between"><strong>${n} / ${goal()}권</strong><span class="sub">${pct}%</span></div>
+        <div class="ds-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${goal()}" aria-valuenow="${n}" aria-label="읽은 권수"><span style="width:${pct}%"></span></div></div>`;
+    };
+    const banner = () => {
+      const left = goal() - live().length;
+      return {
+        before: `<p class="ds-notice">참가 완료. 인증은 10월 1일부터 할 수 있어요 — 시작하면 알림을 보내 드려요.</p>`,
+        ongoing: `<p class="ds-notice">${left}권 더 읽으면 ${won(reward())}를 받아요. 오늘 인증 ${d.today}/${cap()}건.</p>`,
+        achieved: `<p class="status">달성했어요! ${won(reward())}는 기간이 끝나고 검수 ${NUM.REVIEW_DAYS}일이 지난 ${CH.payDay}에 지급돼요. 기간 끝까지 더 인증해도 돼요.</p>`,
+        ended: `<p class="ds-notice warn">${goal()}권 중 ${live().length}권을 읽었어요. 이번엔 보상이 없지만 인증 기록은 내 서재에 남아요.</p>`,
+        rewarded: `<p class="status">✓ ${won(reward())}가 지급됐어요 (이벤트 포인트). 포인트 내역에서 확인할 수 있어요.</p>`,
+      }[view.state];
+    };
+    const form = () => {
+      if (!d.form) return "";
+      return `<form class="ds-card stack" data-form="log" novalidate><h2>완독 인증</h2>
+        <div class="ds-field"><label for="f-isbn">ISBN</label><input class="ds-input" id="f-isbn" name="isbn" inputmode="numeric" placeholder="책 뒤표지 바코드 아래 13자리">
+          <label class="check"><input type="checkbox" name="noIsbn" data-act="noop"> ISBN이 없는 책이에요 (독립출판 등)</label>
+          <span class="ds-field__hint">ISBN이 없으면 제목으로 인증하고, 운영자가 확인해요</span></div>
+        <div class="ds-field"><label for="f-title">책 제목</label><input class="ds-input" id="f-title" name="title" placeholder="예: 숲의 시간"></div>
+        <div class="ds-field"><label for="f-review">한 줄 감상 (${NUM.REVIEW_MIN}~${NUM.REVIEW_MAX}자)</label><textarea class="ds-input" id="f-review" name="review" maxlength="${NUM.REVIEW_MAX}"></textarea></div>
+        <div class="ds-field"><span>사진 (선택)</span><div class="photo photo--wide">사진 자리 — 나와 운영자만 봐요</div></div>
+        <label class="check"><input type="checkbox" name="open"> 다른 참가자에게 감상 공개 (닉네임·책·감상만, 사진 제외)</label>
+        ${d.err ? `<p class="ds-field__hint ds-field__hint--error" role="alert">${esc(d.err)}</p>` : ""}
+        <div class="row"><button type="submit" class="ds-btn ds-btn--primary">인증하기</button><button type="button" class="ds-btn" data-act="form-close">닫기</button></div></form>`;
+    };
+    const myList = () => {
+      if (!d.entries.length) {
+        return `<div class="ds-empty"><p>아직 인증한 책이 없어요.</p>${view.state === "ongoing" ? '<button class="ds-btn ds-btn--primary" data-act="form-open">첫 책 인증하기</button>' : '<a class="ds-btn" href="../">책방 둘러보기</a>'}</div>`;
+      }
+      return `<ul class="list">${d.entries.map((e) => `<li><div class="entry"><div class="photo">사진</div><div>
+        <strong class="${e.cancelled ? "done-line" : ""}">${esc(e.title)}</strong>
+        <span class="sub">${e.isbn ? `ISBN ${e.isbn}` : "ISBN 없음 · 확인 중"} · ${e.day}</span>
+        <p class="review">${esc(e.review)}</p>
+        <div class="row">${e.open ? '<span class="ds-tag ds-tag--brand">참가자 공개</span>' : '<span class="ds-tag">나만 보기</span>'}${e.cancelled ? '<span class="ds-tag ds-tag--danger">운영자 취소</span>' : ""}</div>
+      </div></div></li>`).join("")}</ul>`;
+    };
+    const feed = () => `<section class="ds-card stack"><h2>참가자 공개 감상</h2>
+      <p class="sub">공개를 고른 감상만 보여요. 순위·권수는 보이지 않아요.</p>
+      <ul class="list">${FEED.map((f) => `<li><div class="row"><span class="ds-avatar ds-avatar--sm"></span><strong>${f.nick}</strong></div>
+        <span class="sub">${f.title}</span><p class="review">${f.review}</p>
+        <div class="row">${d.reported[f.id] ? '<span class="ds-tag">신고함 · 처리되면 알려 드려요</span>' : `<button class="ds-btn ds-btn--sm" data-act="report" data-id="${f.id}">신고</button>`}</div></li>`).join("")}</ul></section>`;
+
+    const participant = () => {
+      if (d.quit) {
+        return `<section class="ds-card ds-empty"><p>이번 챌린지 참가를 그만뒀어요. 인증한 책은 내 서재에 남아요.</p>
+          <button class="ds-btn ds-btn--primary" data-act="notify">다음 챌린지 알림 받기</button></section>`;
+      }
+      const ongoing = view.state === "ongoing" || view.state === "achieved";
+      const full = d.today >= cap();
+      const action = ongoing && !d.form
+        ? (full ? `<button class="ds-btn ds-btn--block" disabled>오늘은 ${cap()}권까지 인증했어요 · 내일 다시</button>`
+                : `<button class="ds-btn ds-btn--primary ds-btn--block" data-act="form-open">다 읽은 책 인증하기</button>`)
+        : "";
+      const quit = (view.state === "before" || view.state === "ongoing")
+        ? (d.quitAsk
+          ? `<div class="ds-notice warn stack"><p>그만두면 이번 챌린지에는 다시 참가할 수 없고 보상도 받을 수 없어요. 인증한 책은 내 서재에 남아요.</p>
+              <div class="row"><button class="ds-btn ds-btn--danger" data-act="quit">그만두기</button><button class="ds-btn" data-act="quit-cancel">계속 참가</button></div></div>`
+          : `<button class="ds-btn ds-btn--sm" data-act="quit-ask">참가 그만두기</button>`)
+        : "";
+      return `<div class="cols"><div class="stack">
+        <section class="ds-card stack">${progress()}${banner()}${action}</section>
+        ${form()}
+        <section class="ds-card stack"><h2>내 인증</h2>${myList()}</section>
+        ${quit ? `<div>${quit}</div>` : ""}
+      </div>${view.state === "before" ? "" : feed()}</div>`;
+    };
+
+    // ─── 운영자 ───
+    const admin = () => {
+      const ph = PHASE[view.state];
+      const editable = ph === "before";
+      const s = d.settings;
+      const settings = `<section class="ds-card stack"><h2>챌린지 설정</h2>
+        ${editable ? '<p class="ds-notice">시작 전에만 바꿀 수 있어요. 바꾸면 감사 기록이 남아요.</p>' : '<p class="ds-notice">진행 중·종료된 챌린지는 바꿀 수 없어요. 다음 챌린지 설정에서 바꿔 주세요.</p>'}
+        <form class="stack" data-form="settings">
+          <div class="grid3">
+            <div class="ds-field"><label for="s-goal">달성 권수</label><input class="ds-input" id="s-goal" name="GOAL_BOOKS" type="number" min="1" value="${s.GOAL_BOOKS}" ${editable ? "" : "disabled"}></div>
+            <div class="ds-field"><label for="s-reward">보상 포인트</label><input class="ds-input" id="s-reward" name="REWARD_POINT" type="number" min="0" step="10" value="${s.REWARD_POINT}" ${editable ? "" : "disabled"}></div>
+            <div class="ds-field"><label for="s-cap">하루 인증 상한</label><input class="ds-input" id="s-cap" name="DAILY_CAP" type="number" min="1" value="${s.DAILY_CAP}" ${editable ? "" : "disabled"}></div>
+          </div>
+          ${editable ? `<div class="ds-field"><label for="s-why">바꾸는 이유 (필수)</label><input class="ds-input" id="s-why" name="why" placeholder="예: 11월은 연휴가 있어 권수 조정"></div>
+          <button type="submit" class="ds-btn ds-btn--primary">설정 저장</button>` : ""}
+        </form></section>`;
+
+      const open = d.queue.filter((q) => q.status === "open");
+      const queue = `<section class="ds-card stack"><h2>검수할 인증</h2>
+        ${ph === "before" ? '<div class="ds-empty"><p>시작 전이라 검수할 인증이 없어요.</p><button class="ds-btn" data-act="notify-admin">지난 챌린지 검수 기록 보기</button></div>'
+          : !open.length ? '<div class="ds-empty"><p>검수할 인증을 모두 처리했어요.</p><button class="ds-btn" data-act="notify-admin">처리 기록 보기</button></div>'
+          : `<ul class="list">${open.map((q) => `<li><div class="row between"><strong>${q.nick} · ${q.title}</strong><span class="ds-tag ds-tag--danger">${q.reason}</span></div>
+            <span class="sub">${q.isbn ? `ISBN ${q.isbn}` : "ISBN 없음"} · 이 참가자 인증 ${q.count}권 · 사진 있음</span>
+            <div class="entry"><div class="photo">사진</div><p class="review">${q.review}</p></div>
+            ${d.cancelAsk === q.id ? cancelPanel(q) : `<div class="row"><button class="ds-btn" data-act="keep" data-id="${q.id}">인증 유지</button><button class="ds-btn ds-btn--danger" data-act="cancel-ask" data-id="${q.id}">인증 취소</button></div>`}</li>`).join("")}</ul>`}
+      </section>`;
+
+      const total = NUM.ACHIEVERS * reward();
+      const pay = `<section class="ds-card stack"><h2>보상 지급</h2>
+        ${d.paid ? `<p class="status">✓ 지급 완료 · ${NUM.ACHIEVERS}명 × ${won(reward())} = ${won(total)} (이벤트 포인트)</p>`
+          : ph !== "ended" ? `<p class="ds-notice">기간이 끝나고 검수 ${NUM.REVIEW_DAYS}일이 지나야 지급할 수 있어요 (${CH.payDay}).</p>`
+          : d.payAsk ? `<div class="stack"><p>지급 대상 <strong>${NUM.ACHIEVERS}명</strong> × ${won(reward())} = <strong>${won(total)}</strong></p>
+              <p class="sub">책숲 이벤트 예산에서 나가는 이벤트 포인트예요. 검수 중인 인증 ${open.length}건이 남아 있으면 그 참가자는 빠져요.</p>
+              <div class="row"><button class="ds-btn ds-btn--primary" data-act="pay">${won(total)} 지급하기</button><button class="ds-btn" data-act="pay-cancel">취소</button></div></div>`
+          : `<button class="ds-btn ds-btn--primary ds-btn--block" data-act="pay-ask">지급 내용 확인</button>`}
+      </section>`;
+
+      const audit = `<section class="ds-card stack"><h2>감사 기록</h2>
+        ${d.audit.length ? `<ul class="list">${d.audit.map((a) => `<li class="audit">${esc(a)}</li>`).join("")}</ul>` : '<p class="sub">이번 화면에서 남긴 기록이 없어요.</p>'}</section>`;
+      return `<div class="cols"><div class="stack">${queue}${pay}</div><div class="stack">${settings}${audit}</div></div>`;
+    };
+    const cancelPanel = (q) => {
+      const after = q.count - 1;
+      const drop = after < goal();
+      const impact = !drop ? `취소해도 ${after}권이라 달성은 유지돼요.`
+        : d.paid ? `${after}권이 되어 달성이 풀려요. 지급된 ${won(reward())}(이벤트 포인트)를 회수해요. 이벤트 포인트 잔액이 모자라면 남은 만큼만 회수하고 나머지는 기록만 남겨요.`
+        : `${after}권이 되어 달성이 풀려요. 아직 지급 전이라 회수할 포인트는 없어요.`;
+      return `<form class="ds-notice warn stack" data-form="cancel" data-id="${q.id}">
+        <p>${impact}</p><p>참가자에게 취소 사유가 알림으로 가요.</p>
+        <div class="ds-field"><label for="c-why">취소 사유 (필수)</label><input class="ds-input" id="c-why" name="why" placeholder="예: 완독 근거 없는 반복 문구"></div>
+        ${d.err ? `<p class="ds-field__hint ds-field__hint--error" role="alert">${esc(d.err)}</p>` : ""}
+        <div class="row"><button type="submit" class="ds-btn ds-btn--danger">${drop && d.paid ? `취소하고 ${won(reward())} 회수` : "인증 취소"}</button><button type="button" class="ds-btn" data-act="cancel-close">닫기</button></div></form>`;
+    };
+
+    // ─── 그리기 ───
+    const render = () => {
+      const body = view.role === "admin" ? admin() : view.role === "participant" ? participant() : outsider();
+      app.innerHTML = head() + msg() + body;
+      nextDay.hidden = view.role !== "participant";
+    };
+    const go = (patch) => { Object.assign(view, patch); role.value = view.role; state.value = view.state; render(); };
+    const stamp = () => "10-19 14:02";
+
+    // ─── 동작 ───
+    const ACT = {
+      login: () => { d.msg = "로그인했어요 (프로토타입: 독자로 바뀜)"; go({ role: "reader" }); },
+      notify: () => { d.msg = `${CH.next} — 시작하면 알림을 보내 드려요.`; render(); },
+      "notify-admin": () => { d.msg = "프로토타입에는 지난 기록 화면이 없어요 — 명세 「남은 질문」 참고."; render(); },
+      "join-ask": () => { d.joinAsk = true; render(); },
+      "join-cancel": () => { d.joinAsk = false; render(); },
+      join: () => { d.joinAsk = false; d.entries = []; d.msg = "참가했어요. 다 읽은 책부터 인증해 보세요."; go({ role: "participant" }); },
+      "form-open": () => { d.form = true; d.err = ""; render(); document.getElementById("f-isbn")?.focus(); },
+      "form-close": () => { d.form = false; d.err = ""; render(); },
+      "quit-ask": () => { d.quitAsk = true; render(); },
+      "quit-cancel": () => { d.quitAsk = false; render(); },
+      quit: () => { d.quit = true; d.quitAsk = false; d.msg = ""; render(); },
+      report: (id) => { d.reported[id] = true; d.msg = "신고가 접수됐어요. 처리 결과는 알림으로 알려 드려요."; render(); },
+      keep: (id) => {
+        const q = d.queue.find((x) => x.id === id); q.status = "kept";
+        d.audit.unshift(`${stamp()} 운영자A · 인증 유지 · ${q.nick}/${q.title}`); d.msg = "인증을 유지했어요. 신고자에게 결과가 알림으로 가요."; render();
+      },
+      "cancel-ask": (id) => { d.cancelAsk = id; d.err = ""; render(); },
+      "cancel-close": () => { d.cancelAsk = null; d.err = ""; render(); },
+      "pay-ask": () => { d.payAsk = true; render(); },
+      "pay-cancel": () => { d.payAsk = false; render(); },
+      pay: () => {
+        d.paid = true; d.payAsk = false;
+        d.audit.unshift(`${stamp()} 운영자A · 보상 지급 · ${NUM.ACHIEVERS}명 × ${reward()}P = ${NUM.ACHIEVERS * reward()}P`);
+        d.msg = "지급했어요. 참가자에게 알림이 가요."; render();
+      },
+    };
+    app.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-act]");
+      if (!b || b.dataset.act === "noop") return;
+      d.msg = "";
+      ACT[b.dataset.act]?.(b.dataset.id);
+    });
+
+    const FORMS = {
+      log: (f) => {
+        const isbn = f.elements.isbn.value.replace(/\D/g, "");
+        const title = f.elements.title.value.trim();
+        const review = f.elements.review.value.trim();
+        const noIsbn = f.elements.noIsbn.checked;
+        const err = d.today >= cap() ? `오늘은 ${cap()}권까지 인증할 수 있어요. 내일 다시 인증해 주세요.`
+          : !noIsbn && ![10, 13].includes(isbn.length) ? "ISBN 10자리 또는 13자리를 입력해 주세요. 없으면 'ISBN이 없는 책'을 골라 주세요."
+          : !noIsbn && d.entries.some((x) => x.isbn === isbn) ? "이미 이번 챌린지에서 인증한 책이에요. 다른 책을 인증해 주세요."
+          : !noIsbn && PREV_ISBN.includes(isbn) ? "지난 챌린지에서 인증한 책이에요. 같은 책은 한 번만 인정돼요."
+          : !title ? "책 제목을 입력해 주세요."
+          : review.length < NUM.REVIEW_MIN ? `한 줄 감상을 ${NUM.REVIEW_MIN}자 이상 써 주세요. 지금 ${review.length}자예요.`
+          : "";
+        if (err) { d.err = err; render(); return; }
+        d.entries.push({ id: `e${Date.now()}`, isbn: noIsbn ? "" : isbn, title, review, open: f.elements.open.checked, day: "오늘" });
+        d.today += 1; d.form = false; d.err = "";
+        if (view.state === "ongoing" && live().length >= goal()) { d.msg = `${goal()}권 달성! 보상은 ${CH.payDay}에 지급돼요.`; go({ state: "achieved" }); return; }
+        d.msg = `인증했어요. ${Math.max(goal() - live().length, 0)}권 남았어요.`; render();
+      },
+      cancel: (f) => {
+        const why = f.elements.why.value.trim();
+        if (!why) { d.err = "취소 사유를 입력해 주세요. 참가자에게 그대로 전달돼요."; render(); return; }
+        const q = d.queue.find((x) => x.id === f.dataset.id);
+        const drop = q.count - 1 < goal();
+        q.status = "cancelled"; d.cancelAsk = null; d.err = "";
+        const back = drop && d.paid ? ` · 회수 ${reward()}P` : "";
+        d.audit.unshift(`${stamp()} 운영자A · 인증 취소 · ${q.nick}/${q.title} · ${q.count}권→${q.count - 1}권${back} · 사유: ${why}`);
+        d.msg = `인증을 취소했어요${back ? `. ${won(reward())}를 회수했어요` : ""}. 참가자·신고자에게 알림이 가요.`; render();
+      },
+      settings: (f) => {
+        const why = f.elements.why.value.trim();
+        if (!why) { d.msg = "바꾸는 이유를 입력해 주세요. 감사 기록에 남아요."; render(); return; }
+        const changed = Object.keys(d.settings).filter((k) => Number(f.elements[k].value) !== d.settings[k]);
+        if (!changed.length) { d.msg = "바뀐 값이 없어요."; render(); return; }
+        changed.forEach((k) => { d.audit.unshift(`${stamp()} 운영자A · 설정 ${k} ${d.settings[k]}→${f.elements[k].value} · 사유: ${why}`); d.settings[k] = Number(f.elements[k].value); });
+        d.msg = "설정을 저장했어요."; render();
+      },
+    };
+    app.addEventListener("submit", (e) => { e.preventDefault(); FORMS[e.target.dataset.form]?.(e.target); });
+    // 폼 필드는 f.elements 로 읽는다 — f.title 은 폼의 title 속성이라 입력칸이 아니다
+
+    document.getElementById("view").addEventListener("click", (e) => {
+      if (e.target.dataset.view !== "next-day") return;
+      d.today = 0; d.msg = "하루가 지났어요 (보기 전환). 오늘 인증 수가 0으로 돌아가요."; render();
+    });
+    document.addEventListener("ds:change", render);
+
+    fill(role, ROLES, view.role);
+    fill(state, STATES, view.state);
+    role.onchange = () => { view.role = role.value; seed(); render(); };
+    state.onchange = () => { view.state = state.value; seed(); render(); };
+    seed();
+    render();
+  </script>
+</body>
+</html>

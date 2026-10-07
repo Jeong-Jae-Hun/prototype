@@ -25,13 +25,116 @@
     .links { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
     .btn { display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; border-radius: 12px; background: #23232e; text-decoration: none; font-size: 14px; }
     .sub { color: #9a9aab; font-size: 13px; }
+    h2 { font-size: 17px; margin: 28px 0 4px; }
+    .brands { display: flex; gap: 6px; margin-top: 8px; }
+    .brand { font-size: 12px; padding: 2px 8px; border-radius: 6px; border: 1px solid #33333f; color: #c4c4d0; }
+    .shots { display: inline-flex; margin: 0 0 8px; padding: 10px 14px; border-radius: 12px; background: #23232e; text-decoration: none; }
   </style>
 </head>
 <body>
   <main>
     <h1>프로토타입 · 확정본</h1>
     <p>화면은 버리는 프로토타입이고, 규칙은 명세가 정본이다. 둘이 어긋나면 명세가 맞다. 처음이면 <a href="https://github.com/Jeong-Jae-Hun/prototype#readme">사용법</a>부터.</p>
-    <div class="empty">아직 프로토타입이 없다.</div>
+    
+    <section><h2>기반</h2><p>디자인 시스템과 앱 구조. 이걸 바꾸면 아래 모든 기능 화면이 따라 바뀐다.</p><ul>
+      <li>
+        <a class="open" href="design-system/">
+          <span class="status" data-status="초안">초안</span>
+          <span class="title">디자인 시스템 기준선 — 두 층 토큰과 공용 컴포넌트</span>
+          <span class="slug">design-system</span>
+        </a>
+        <div class="brands"><span class="brand">책숲</span><span class="brand">책숲 파트너</span></div>
+        <div class="links">
+          <a class="btn" href="design-system/">화면 보기</a>
+          <a class="btn" href="spec.html?slug=design-system">명세 읽기</a>
+          <a class="sub" href="https://github.com/Jeong-Jae-Hun/prototype/blob/main/prototypes/design-system/SPEC.md">GitHub</a>
+        </div>
+        <div class="meta">디자인 @디자인담당 · 개발(디자인 시스템) @디자인시스템담당 · 기획 @기획담당</div>
+      </li>
+      <li>
+        <a class="open" href="app-structure/">
+          <span class="status" data-status="초안">초안</span>
+          <span class="title">앱 구조 — 독자 앱과 파트너 앱의 탭 기준선</span>
+          <span class="slug">app-structure</span>
+        </a>
+        <div class="brands"><span class="brand">책숲</span><span class="brand">책숲 파트너</span></div>
+        <div class="links">
+          <a class="btn" href="app-structure/">화면 보기</a>
+          <a class="btn" href="spec.html?slug=app-structure">명세 읽기</a>
+          <a class="sub" href="https://github.com/Jeong-Jae-Hun/prototype/blob/main/prototypes/app-structure/SPEC.md">GitHub</a>
+        </div>
+        <div class="meta">기획 @기획-예시 · 디자인 @디자인-예시 · 개발 @개발-예시 · **영향 받는 기능 담당 전원** (book-club · book-swap · reading-challenge · restock-alert · settlement)</div>
+      </li></ul></section><section><h2>기능</h2><p>기능 하나 = 프로토타입 하나.</p><ul>
+      <li>
+        <a class="open" href="book-club/">
+          <span class="status" data-status="초안">초안</span>
+          <span class="title">북클럽 모임 — 서점이 열고 독자가 신청·대기·취소하는 오프라인 모임</span>
+          <span class="slug">book-club</span>
+        </a>
+        <div class="brands"><span class="brand">책숲</span><span class="brand">책숲 파트너</span></div>
+        <div class="links">
+          <a class="btn" href="book-club/">화면 보기</a>
+          <a class="btn" href="spec.html?slug=book-club">명세 읽기</a>
+          <a class="sub" href="https://github.com/Jeong-Jae-Hun/prototype/blob/main/prototypes/book-club/SPEC.md">GitHub</a>
+        </div>
+        <div class="meta">기획 @기획담당 · 디자인 @디자인담당 · 개발 @개발담당</div>
+      </li>
+      <li>
+        <a class="open" href="book-swap/">
+          <span class="status" data-status="초안">초안</span>
+          <span class="title">중고책 교환 — 독자끼리 책 한 권씩을 동네 서점에 맡겨 무상으로 바꾼다</span>
+          <span class="slug">book-swap</span>
+        </a>
+        <div class="brands"><span class="brand">책숲</span></div>
+        <div class="links">
+          <a class="btn" href="book-swap/">화면 보기</a>
+          <a class="btn" href="spec.html?slug=book-swap">명세 읽기</a>
+          <a class="sub" href="https://github.com/Jeong-Jae-Hun/prototype/blob/main/prototypes/book-swap/SPEC.md">GitHub</a>
+        </div>
+        <div class="meta">기획 @미정 · 디자인 @미정 · 개발 @미정</div>
+      </li>
+      <li>
+        <a class="open" href="reading-challenge/">
+          <span class="status" data-status="초안">초안</span>
+          <span class="title">독서 챌린지 — 한 달 동안 정한 권수를 읽고 인증하면 이벤트 포인트를 받는다</span>
+          <span class="slug">reading-challenge</span>
+        </a>
+        <div class="brands"><span class="brand">책숲</span></div>
+        <div class="links">
+          <a class="btn" href="reading-challenge/">화면 보기</a>
+          <a class="btn" href="spec.html?slug=reading-challenge">명세 읽기</a>
+          <a class="sub" href="https://github.com/Jeong-Jae-Hun/prototype/blob/main/prototypes/reading-challenge/SPEC.md">GitHub</a>
+        </div>
+        <div class="meta">기획 @기획담당 · 디자인 @디자인담당 · 개발 @개발담당</div>
+      </li>
+      <li>
+        <a class="open" href="restock-alert/">
+          <span class="status" data-status="초안">초안</span>
+          <span class="title">입고 알림 — 품절된 찜한 책이 들어오면 독자에게 알리고 픽업 예약으로 잇는다</span>
+          <span class="slug">restock-alert</span>
+        </a>
+        <div class="brands"><span class="brand">책숲</span><span class="brand">책숲 파트너</span></div>
+        <div class="links">
+          <a class="btn" href="restock-alert/">화면 보기</a>
+          <a class="btn" href="spec.html?slug=restock-alert">명세 읽기</a>
+          <a class="sub" href="https://github.com/Jeong-Jae-Hun/prototype/blob/main/prototypes/restock-alert/SPEC.md">GitHub</a>
+        </div>
+        <div class="meta">기획 @기획담당 · 디자인 @디자인담당 · 개발 @개발담당</div>
+      </li>
+      <li>
+        <a class="open" href="settlement/">
+          <span class="status" data-status="초안">초안</span>
+          <span class="title">사장님 정산 — 월 정산 보기와 이의 제기·보류</span>
+          <span class="slug">settlement</span>
+        </a>
+        <div class="brands"><span class="brand">책숲 파트너</span></div>
+        <div class="links">
+          <a class="btn" href="settlement/">화면 보기</a>
+          <a class="btn" href="spec.html?slug=settlement">명세 읽기</a>
+          <a class="sub" href="https://github.com/Jeong-Jae-Hun/prototype/blob/main/prototypes/settlement/SPEC.md">GitHub</a>
+        </div>
+        <div class="meta">기획 @정산기획 · 디자인 @파트너디자인 · 개발 @정산개발</div>
+      </li></ul></section>
   </main>
 </body>
 </html>

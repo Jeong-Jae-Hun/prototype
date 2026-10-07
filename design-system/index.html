@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>디자인 시스템</title>
+  <script src="../design-system/theme.js" data-brands="reader partner"></script>
+  <link rel="stylesheet" href="../design-system/tokens.css">
+  <link rel="stylesheet" href="../design-system/components.css">
+  <script src="../app-structure/shell.js" data-active="design-system" defer></script>
+  <style>
+    /* 갤러리 배치만. 색은 --ds-color-* 만 쓴다 */
+    main { max-width: 1120px; margin: 0 auto; padding: var(--ds-space-5) var(--ds-space-4); display: flex; flex-direction: column; gap: var(--ds-space-6); }
+    [hidden] { display: none !important; }
+    section > h2 { margin: 0 0 var(--ds-space-2); font-size: var(--ds-font-size-xl); }
+    section > p { margin: 0 0 var(--ds-space-4); color: var(--ds-color-sub); }
+    h3 { margin: var(--ds-space-5) 0 var(--ds-space-3); font-size: var(--ds-font-size-lg); }
+    .grid { display: grid; gap: var(--ds-space-3); grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+    .row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-3); }
+    .stack { display: flex; flex-direction: column; gap: var(--ds-space-3); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; word-break: break-all; }
+    .sub { color: var(--ds-color-sub); font-size: var(--ds-font-size-sm); }
+
+    .swatch { display: flex; gap: var(--ds-space-3); align-items: center; padding: var(--ds-space-3); }
+    .swatch__chip { width: 48px; height: 48px; flex: none; border-radius: var(--ds-radius-sm); border: 1px solid var(--ds-color-line); }
+    .swatch__body { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+
+    .ratio { width: 100%; border-collapse: collapse; font-size: var(--ds-font-size-sm); }
+    .ratio th, .ratio td { text-align: left; padding: var(--ds-space-2); border-bottom: 1px solid var(--ds-color-line); }
+    .ratio__sample { display: inline-block; padding: 2px var(--ds-space-2); border-radius: var(--ds-radius-xs); border: 1px solid var(--ds-color-line); }
+    .table-wrap { overflow-x: auto; }
+
+    .type-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--ds-space-3); padding: var(--ds-space-2) 0; border-bottom: 1px solid var(--ds-color-line); }
+    .type-row .mono { width: 220px; flex: none; color: var(--ds-color-sub); }
+    .space-row { display: flex; align-items: center; gap: var(--ds-space-3); }
+    .space-row .mono { width: 160px; flex: none; color: var(--ds-color-sub); }
+    .space-bar { height: 16px; background: var(--ds-color-brand); border-radius: 2px; }
+    .radius-box { width: 96px; height: 64px; background: var(--ds-color-brand-soft); border: 1px solid var(--ds-color-brand); }
+
+    .demo { display: flex; flex-direction: column; gap: var(--ds-space-3); }
+    .demo__label { font-size: 12px; color: var(--ds-color-sub); }
+
+    .quad { display: grid; gap: var(--ds-space-3); grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+    .quad__cell { background: var(--ds-color-bg); color: var(--ds-color-text); padding: var(--ds-space-4); border-radius: var(--ds-radius-lg); border: 1px solid var(--ds-color-line); display: flex; flex-direction: column; gap: var(--ds-space-3); }
+    .quad__cover { height: 72px; border-radius: var(--ds-radius-sm); background: var(--ds-color-placeholder); }
+  </style>
+</head>
+<body>
+  <div id="view">
+    <a href="../">← 목록</a>
+    <a href="../spec.html?slug=design-system">명세 읽기</a>
+    <label>보기 <select id="state"></select></label>
+  </div>
+
+  <main>
+    <header>
+      <h1 style="margin:0">디자인 시스템</h1>
+      <p class="sub" id="current"></p>
+      <p class="sub">값은 <span class="mono">tokens.css</span>에서 지금 읽어 온다. 위 바에서 브랜드·테마를 바꾸면 색·대비가 다시 계산된다.</p>
+    </header>
+
+    <!-- ─── 색 ─── -->
+    <section data-states="all color">
+      <h2>색 토큰</h2>
+      <p>의미 토큰 <span class="mono">--ds-color-*</span>. 화면은 hex 를 쓰지 않고 이 이름만 쓴다.</p>
+      <div class="grid" id="swatches"></div>
+
+      <h3>글자 대비</h3>
+      <p class="sub">기준: 본문 <span id="min-label"></span>:1 이상. 통과 여부는 글자와 기호로도 표시한다.</p>
+      <div class="ds-card table-wrap">
+        <table class="ratio">
+          <thead><tr><th>글자</th><th>바탕</th><th>보기</th><th>대비</th><th>판정</th></tr></thead>
+          <tbody id="contrast"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section data-states="all color">
+      <h2>글자 크기</h2>
+      <div id="type-scale"></div>
+      <h3>간격</h3>
+      <div class="stack" id="space-scale"></div>
+      <h3>모서리</h3>
+      <div class="row" id="radius-scale"></div>
+    </section>
+
+    <!-- ─── 컴포넌트 ─── -->
+    <section data-states="all components">
+      <h2>컴포넌트</h2>
+      <p>클래스 이름이 곧 계약이다. 기능 프로토타입은 새 버튼·카드를 그리지 않고 이걸 쓴다.</p>
+
+      <h3><span class="mono">.ds-btn</span></h3>
+      <div class="demo">
+        <div class="row">
+          <button class="ds-btn ds-btn--primary">주 버튼 (--primary)</button>
+          <button class="ds-btn">보조 버튼 (기본)</button>
+          <button class="ds-btn ds-btn--danger">삭제 (--danger)</button>
+          <button class="ds-btn" disabled>비활성 (disabled)</button>
+          <button class="ds-btn ds-btn--primary" disabled>주 버튼 비활성</button>
+        </div>
+        <div class="row">
+          <button class="ds-btn ds-btn--sm">작게 (--sm)</button>
+          <button class="ds-btn ds-btn--sm ds-btn--primary">작은 주 버튼</button>
+          <span class="demo__label">--sm 은 32px — 주요 버튼에 쓰지 않는다(44px 미만)</span>
+        </div>
+        <button class="ds-btn ds-btn--primary ds-btn--block">가득 채움 (--block)</button>
+      </div>
+
+      <h3><span class="mono">.ds-card</span></h3>
+      <div class="grid">
+        <article class="ds-card stack">
+          <div class="quad__cover" aria-hidden="true"></div>
+          <strong>숲속책방 낭독회</strong>
+          <span class="sub">토요일 오후 · 자리 6개 남음</span>
+        </article>
+        <article class="ds-card stack">
+          <strong>골목서점</strong>
+          <span class="sub">단골 128명 · 오늘 오전 기준 재고</span>
+          <div class="row"><span class="ds-tag ds-tag--brand">단골</span><span class="ds-tag">영업 중</span></div>
+        </article>
+      </div>
+
+      <h3><span class="mono">.ds-tag</span></h3>
+      <div class="row">
+        <span class="ds-tag">기본</span>
+        <span class="ds-tag ds-tag--brand">--brand · 단골</span>
+        <span class="ds-tag ds-tag--success">✓ --success · 신청 완료</span>
+        <span class="ds-tag ds-tag--danger">! --danger · 마감</span>
+      </div>
+
+      <h3><span class="mono">.ds-input</span> · <span class="mono">.ds-field</span></h3>
+      <div class="grid">
+        <label class="ds-field">
+          <span>모임 이름</span>
+          <input class="ds-input" placeholder="예: 토요 낭독회" value="토요 낭독회">
+          <span class="ds-field__hint">20자까지 쓸 수 있어요</span>
+        </label>
+        <label class="ds-field">
+          <span>정원</span>
+          <input class="ds-input" value="0" aria-invalid="true" aria-describedby="err-cap">
+          <span class="ds-field__hint ds-field__hint--error" id="err-cap">! 1명 이상으로 적어 주세요</span>
+        </label>
+        <label class="ds-field">
+          <span>비활성 입력</span>
+          <input class="ds-input" value="수정할 수 없음" disabled>
+          <span class="ds-field__hint">사장님만 바꿀 수 있어요</span>
+        </label>
+      </div>
+
+      <h3><span class="mono">.ds-tabs</span></h3>
+      <div class="ds-card">
+        <div class="ds-tabs" role="tablist" id="tabs">
+          <button role="tab" aria-selected="true" data-tab="0">다가오는 모임</button>
+          <button role="tab" aria-selected="false" data-tab="1">지난 모임</button>
+          <button role="tab" aria-selected="false" data-tab="2">내 신청</button>
+        </div>
+        <p class="sub" id="tab-panel" style="margin:var(--ds-space-3) 0 0"></p>
+      </div>
+
+      <h3><span class="mono">.ds-empty</span></h3>
+      <div class="grid">
+        <div class="ds-card">
+          <div class="ds-empty" id="empty">
+            <strong>아직 단골 책방이 없어요</strong>
+            <span>동네 책방을 둘러보고 단골로 등록해 보세요.</span>
+            <button class="ds-btn ds-btn--primary" data-act="empty-go">책방 둘러보기</button>
+          </div>
+          <p class="ds-notice" id="empty-result" hidden>책방 목록으로 이동한다(갤러리에서는 이동하지 않는다).</p>
+        </div>
+        <div class="ds-card">
+          <div class="ds-empty">
+            <strong>목록을 불러오지 못했어요</strong>
+            <span>빈 상태와 다르게 그린다 — 다시 시도할 수 있게.</span>
+            <div class="row" style="justify-content:center">
+              <button class="ds-btn">다시 시도</button>
+              <a class="ds-btn" href="#">문의하기</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h3><span class="mono">.ds-avatar</span></h3>
+      <div class="row">
+        <span class="ds-avatar" aria-hidden="true"></span><span class="sub">기본 40px</span>
+        <span class="ds-avatar ds-avatar--sm" aria-hidden="true"></span><span class="sub">--sm 28px</span>
+      </div>
+
+      <h3><span class="mono">.ds-progress</span></h3>
+      <div class="stack">
+        <div class="ds-progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"><span style="width:0%"></span></div>
+        <div class="ds-progress" role="progressbar" aria-valuenow="40" aria-valuemin="0" aria-valuemax="100"><span style="width:40%"></span></div>
+        <div class="ds-progress" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"><span style="width:100%"></span></div>
+        <span class="sub">0% · 40% · 100% — 숫자를 옆에 같이 적는다(막대 색만으로 알리지 않는다)</span>
+      </div>
+
+      <h3><span class="mono">.ds-notice</span></h3>
+      <p class="ds-notice">ⓘ 재고는 오늘 오전 기준이에요. 매장에서 달라질 수 있어요.</p>
+    </section>
+
+    <!-- ─── 4벌 ─── -->
+    <section data-states="all compare">
+      <h2>4벌 한눈에</h2>
+      <p>같은 카드를 브랜드 × 테마 네 벌로 그린다. 감싸는 요소에 <span class="mono">data-brand</span>·<span class="mono">data-theme</span>를 붙이면 그 안의 토큰이 바뀐다.</p>
+      <div class="quad" id="quad"></div>
+    </section>
+  </main>
+
+  <script>
+    // 숫자는 여기 한 곳 — SPEC.md 와 같은 값.
+    const NUM = { CONTRAST_MIN: 4.5 };
+    const STATES = { all: "전체", color: "색", components: "컴포넌트", compare: "4벌 비교" };
+    const PAIRS = [
+      ["text", "bg"], ["text", "surface"], ["sub", "bg"], ["sub", "surface"], ["sub", "surface-2"],
+      ["on-brand", "brand"], ["brand-text", "surface"], ["danger", "surface"], ["success", "surface"], ["warning", "surface"],
+    ];
+    const QUAD = [["reader", "light"], ["reader", "dark"], ["partner", "light"], ["partner", "dark"]];
+    const { BRANDS, THEMES } = window.DS_THEME;
+
+    const view = { state: "all" };
+
+    // 토큰 이름은 tokens.css 에서 직접 모은다 — 목록을 두 벌로 적지 않는다.
+    const tokenNames = (prefix) => {
+      const names = new Set();
+      for (const sheet of document.styleSheets) {
+        let rules;
+        try { rules = sheet.cssRules; } catch { continue; }
+        for (const r of rules ?? []) {
+          const st = r.style;
+          if (!st) continue;
+          for (let i = 0; i < st.length; i++) if (st[i].startsWith(prefix)) names.add(st[i]);
+        }
+      }
+      return [...names];
+    };
+    const read = (el, name) => getComputedStyle(el).getPropertyValue(name).trim();
+
+    // ─── 대비 (WCAG 2) ───
+    const parseColor = (s) => {
+      const hex = s.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+      if (hex) {
+        const h = hex[1].length === 3 ? [...hex[1]].map((c) => c + c).join("") : hex[1];
+        return { rgb: [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)), a: 1 };
+      }
+      const fn = s.match(/^rgba?\(([^)]+)\)$/i);
+      if (fn) {
+        const p = fn[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+        return { rgb: p.slice(0, 3), a: p[3] ?? 1 };
+      }
+      return null;
+    };
+    const lum = ([r, g, b]) => [r, g, b]
+      .map((c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; })
+      .reduce((s, c, i) => s + c * [0.2126, 0.7152, 0.0722][i], 0);
+    const contrast = (fg, bg) => {
+      const a = parseColor(fg), b = parseColor(bg);
+      if (!a || !b || a.a < 1 || b.a < 1) return null; // 반투명은 겹치는 바탕에 따라 달라진다
+      const [x, y] = [lum(a.rgb), lum(b.rgb)].sort((m, n) => n - m);
+      return (x + 0.05) / (y + 0.05);
+    };
+    const verdict = (r) => r === null
+      ? '<span class="ds-tag">계산 안 함</span>'
+      : r >= NUM.CONTRAST_MIN ? '<span class="ds-tag ds-tag--success">✓ 통과</span>' : '<span class="ds-tag ds-tag--danger">✗ 미달</span>';
+
+    // ─── 그리기 ───
+    const root = document.documentElement;
+    const renderColors = () => {
+      current.textContent = `지금: ${BRANDS[root.dataset.brand]} · ${THEMES[root.dataset.theme]}`;
+      minLabel.textContent = NUM.CONTRAST_MIN;
+      swatches.innerHTML = tokenNames("--ds-color-").map((n) => `
+        <div class="ds-card swatch" data-token="${n}">
+          <span class="swatch__chip" style="background:var(${n})" aria-hidden="true"></span>
+          <span class="swatch__body"><span class="mono">${n}</span><span class="mono sub" data-value>${read(root, n)}</span></span>
+        </div>`).join("");
+      contrastBody.innerHTML = PAIRS.map(([f, b]) => {
+        const r = contrast(read(root, `--ds-color-${f}`), read(root, `--ds-color-${b}`));
+        return `<tr data-pair="${f}/${b}">
+          <td class="mono">${f}</td><td class="mono">${b}</td>
+          <td><span class="ratio__sample" style="color:var(--ds-color-${f});background:var(--ds-color-${b})">가나다 Aa</span></td>
+          <td class="mono">${r === null ? "—" : r.toFixed(2) + ":1"}</td><td>${verdict(r)}</td></tr>`;
+      }).join("");
+    };
+    const renderScales = () => {
+      typeScale.innerHTML = tokenNames("--ds-font-size-").map((n) => `
+        <div class="type-row"><span class="mono">${n} · ${read(root, n)}</span><span style="font-size:var(${n})">숲속책방에서 만나요</span></div>`).join("");
+      spaceScale.innerHTML = tokenNames("--ds-space-").map((n) => `
+        <div class="space-row"><span class="mono">${n} · ${read(root, n)}</span><span class="space-bar" style="width:var(${n})"></span></div>`).join("");
+      radiusScale.innerHTML = tokenNames("--ds-radius-").map((n) => `
+        <div class="stack" style="gap:var(--ds-space-1)"><span class="radius-box" style="border-radius:var(${n})"></span><span class="mono sub">${n} · ${read(root, n)}</span></div>`).join("");
+    };
+    const renderQuad = () => {
+      quad.innerHTML = QUAD.map(([b, t]) => `
+        <div class="quad__cell" data-brand="${b}" data-theme="${t}">
+          <strong>${BRANDS[b]} · ${THEMES[t]}</strong>
+          <article class="ds-card stack">
+            <div class="quad__cover" aria-hidden="true"></div>
+            <div class="row"><span class="ds-tag ds-tag--brand">단골</span><span class="ds-tag ds-tag--success">✓ 자리 있음</span></div>
+            <strong>골목서점 북클럽</strong>
+            <span class="sub">이번 달 책 『바람의 서가』 · 6명 중 4명</span>
+            <div class="ds-progress"><span style="width:66%"></span></div>
+            <button class="ds-btn ds-btn--primary ds-btn--block">${b === "partner" ? "출석 체크" : "신청하기"}</button>
+            <button class="ds-btn ds-btn--block">자세히</button>
+          </article>
+          <span class="mono sub" data-quad-ratio></span>
+        </div>`).join("");
+      quad.querySelectorAll(".quad__cell").forEach((cell) => {
+        const r = (f, bg) => contrast(read(cell, `--ds-color-${f}`), read(cell, `--ds-color-${bg}`));
+        const t = r("text", "bg"), s = r("sub", "surface"), p = r("on-brand", "brand");
+        cell.querySelector("[data-quad-ratio]").textContent =
+          `text/bg ${t?.toFixed(2)} · sub/surface ${s?.toFixed(2)} · on-brand/brand ${p?.toFixed(2)} — brand ${read(cell, "--ds-color-brand")}`;
+      });
+    };
+    const applyState = () => {
+      document.querySelectorAll("[data-states]").forEach((el) => { el.hidden = !el.dataset.states.split(" ").includes(view.state); });
+    };
+    const render = () => { renderColors(); renderScales(); renderQuad(); applyState(); };
+
+    const current = document.getElementById("current");
+    const minLabel = document.getElementById("min-label");
+    const swatches = document.getElementById("swatches");
+    const contrastBody = document.getElementById("contrast");
+    const typeScale = document.getElementById("type-scale");
+    const spaceScale = document.getElementById("space-scale");
+    const radiusScale = document.getElementById("radius-scale");
+    const quad = document.getElementById("quad");
+    const TAB_TEXT = ["토요일 낭독회 · 숲속책방", "지난달 북클럽 · 골목서점", "신청한 모임 1건"];
+
+    state.innerHTML = Object.entries(STATES).map(([v, t]) => `<option value="${v}"${v === view.state ? " selected" : ""}>${t}</option>`).join("");
+    state.onchange = () => { view.state = state.value; applyState(); };
+
+    document.addEventListener("click", (e) => {
+      const tab = e.target.closest("[data-tab]");
+      if (tab) {
+        document.querySelectorAll("#tabs [data-tab]").forEach((b) => b.setAttribute("aria-selected", String(b === tab)));
+        document.getElementById("tab-panel").textContent = TAB_TEXT[Number(tab.dataset.tab)];
+      }
+      if (e.target.closest('[data-act="empty-go"]')) document.getElementById("empty-result").hidden = false;
+    });
+    document.addEventListener("ds:change", render);
+
+    document.getElementById("tab-panel").textContent = TAB_TEXT[0];
+    // 스타일시트가 다 읽힌 뒤에 토큰을 모은다.
+    document.readyState === "complete" ? render() : window.addEventListener("load", render);
+  </script>
+</body>
+</html>
