@@ -9,6 +9,7 @@
  *
  * 브랜드: reader = 책숲(독자 앱, 숲 초록) · partner = 책숲 파트너(서점 사장님 앱, 남색).
  *         같은 컴포넌트, 다른 색. 프로토타입은 hex 를 직접 쓰지 않고 --ds-color-* 만 쓴다.
+ * 작은 글자(태그)는 *-text 토큰을 쓴다 — 라이트에서 기본 색은 옅은 바탕 위 12px 글자 대비가 4.5:1 에 못 미친다.
  *
  * ⚠️ 예시 레포의 사정: 실제로는 제품 레포의 디자인 시스템이 정본이고, 이 파일은 그 사본이다
  *    (context/README.md 「동기화」). 여기서 바꾸는 것은 "제안"이고, 확정되면 제품 레포에 반영한다.
@@ -64,7 +65,9 @@
   --ds-color-brand-text: #23654a;
   --ds-color-mine: #e4f1ea;
   --ds-color-danger: #c4382c;
-  --ds-color-success: #2f7d5b;
+  --ds-color-success: #3a7d24;
+  --ds-color-success-text: #24611a;
+  --ds-color-danger-text: #a32a20;
   --ds-color-warning: #a8670a;
 }
 
@@ -86,6 +89,8 @@
   --ds-color-mine: #1f3a2d;
   --ds-color-danger: #ff7b6e;
   --ds-color-success: #6fdcaa;
+  --ds-color-success-text: var(--ds-color-success);
+  --ds-color-danger-text: var(--ds-color-danger);
   --ds-color-warning: #f2c46b;
 }
 
@@ -107,6 +112,8 @@
   --ds-color-mine: #e6ecff;
   --ds-color-danger: #c92a3a;
   --ds-color-success: #1d7f56;
+  --ds-color-success-text: #16613f;
+  --ds-color-danger-text: #a3202e;
   --ds-color-warning: #a8670a;
 }
 
@@ -128,5 +135,7 @@
   --ds-color-mine: #1e2a4a;
   --ds-color-danger: #ff7b86;
   --ds-color-success: #6fdcaa;
+  --ds-color-success-text: var(--ds-color-success);
+  --ds-color-danger-text: var(--ds-color-danger);
   --ds-color-warning: #f2c46b;
 }
