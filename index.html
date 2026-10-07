@@ -22,12 +22,15 @@
     .status[data-status="확정"] { background: rgba(80, 200, 140, 0.18); color: #8fe3b8; }
     .status[data-status="검토 중"] { background: rgba(137, 86, 251, 0.2); color: #d0bdff; }
     .empty { color: #9a9aab; }
+    .links { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+    .btn { display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; border-radius: 12px; background: #23232e; text-decoration: none; font-size: 14px; }
+    .sub { color: #9a9aab; font-size: 13px; }
   </style>
 </head>
 <body>
   <main>
     <h1>프로토타입 · 확정본</h1>
-    <p>버리는 화면이다. 규칙은 명세가 정본이다. 프로토타입과 명세가 어긋나면 명세가 맞다.</p>
+    <p>화면은 버리는 프로토타입이고, 규칙은 명세가 정본이다. 둘이 어긋나면 명세가 맞다. 처음이면 <a href="https://github.com/Jeong-Jae-Hun/prototype#readme">사용법</a>부터.</p>
     <ul>
       <li>
         <a class="open" href="birthday-support/">
@@ -35,7 +38,12 @@
           <span class="title">생일 서포트 — 팬들이 포인트를 모아 방송인 생일 축하 이벤트(배너·전광판)를 연다</span>
           <span class="slug">birthday-support</span>
         </a>
-        <div class="meta">기획 @ · 디자인 @ · 개발 @ · <a href="https://github.com/Jeong-Jae-Hun/prototype/blob/main/prototypes/birthday-support/SPEC.md">명세</a></div>
+        <div class="links">
+          <a class="btn" href="birthday-support/">화면 보기</a>
+          <a class="btn" href="spec.html?slug=birthday-support">명세 읽기</a>
+          <a class="sub" href="https://github.com/Jeong-Jae-Hun/prototype/blob/main/prototypes/birthday-support/SPEC.md">GitHub</a>
+        </div>
+        <div class="meta">기획 @ · 디자인 @ · 개발 @</div>
       </li>
       <li>
         <a class="open" href="fan-chat/">
@@ -43,7 +51,12 @@
           <span class="title">팬 챗 — 방송인이 멤버 전원에게 보내고, 팬 답장은 방송인만 본다</span>
           <span class="slug">fan-chat</span>
         </a>
-        <div class="meta">기획 @ · 디자인 @ · 개발 @ · <a href="https://github.com/Jeong-Jae-Hun/prototype/blob/main/prototypes/fan-chat/SPEC.md">명세</a></div>
+        <div class="links">
+          <a class="btn" href="fan-chat/">화면 보기</a>
+          <a class="btn" href="spec.html?slug=fan-chat">명세 읽기</a>
+          <a class="sub" href="https://github.com/Jeong-Jae-Hun/prototype/blob/main/prototypes/fan-chat/SPEC.md">GitHub</a>
+        </div>
+        <div class="meta">기획 @ · 디자인 @ · 개발 @</div>
       </li>
       <li>
         <a class="open" href="fan-letter/">
@@ -51,7 +64,12 @@
           <span class="title">팬레터 — 시청자가 방송인에게 편지를 보내고, 방송인이 골라 방송에서 소개한다</span>
           <span class="slug">fan-letter</span>
         </a>
-        <div class="meta">기획 @ · 디자인 @ · 개발 @ · <a href="https://github.com/Jeong-Jae-Hun/prototype/blob/main/prototypes/fan-letter/SPEC.md">명세</a></div>
+        <div class="links">
+          <a class="btn" href="fan-letter/">화면 보기</a>
+          <a class="btn" href="spec.html?slug=fan-letter">명세 읽기</a>
+          <a class="sub" href="https://github.com/Jeong-Jae-Hun/prototype/blob/main/prototypes/fan-letter/SPEC.md">GitHub</a>
+        </div>
+        <div class="meta">기획 @ · 디자인 @ · 개발 @</div>
       </li>
       <li>
         <a class="open" href="highlight-vote/">
@@ -59,7 +77,12 @@
           <span class="title">하이라이트 투표 — 시청자가 지난주 클립 중 베스트를 뽑아 채널 홈에 건다</span>
           <span class="slug">highlight-vote</span>
         </a>
-        <div class="meta">기획 @ · 디자인 @ · 개발 @ · <a href="https://github.com/Jeong-Jae-Hun/prototype/blob/main/prototypes/highlight-vote/SPEC.md">명세</a></div>
+        <div class="links">
+          <a class="btn" href="highlight-vote/">화면 보기</a>
+          <a class="btn" href="spec.html?slug=highlight-vote">명세 읽기</a>
+          <a class="sub" href="https://github.com/Jeong-Jae-Hun/prototype/blob/main/prototypes/highlight-vote/SPEC.md">GitHub</a>
+        </div>
+        <div class="meta">기획 @ · 디자인 @ · 개발 @</div>
       </li>
       <li>
         <a class="open" href="stream-vote/">
@@ -67,7 +90,12 @@
           <span class="title">다음 방송 투표 — 방송인이 올린 후보에 멤버가 투표해 다음 방송 내용을 정한다</span>
           <span class="slug">stream-vote</span>
         </a>
-        <div class="meta">기획 @ · 디자인 @ · 개발 @ · <a href="https://github.com/Jeong-Jae-Hun/prototype/blob/main/prototypes/stream-vote/SPEC.md">명세</a></div>
+        <div class="links">
+          <a class="btn" href="stream-vote/">화면 보기</a>
+          <a class="btn" href="spec.html?slug=stream-vote">명세 읽기</a>
+          <a class="sub" href="https://github.com/Jeong-Jae-Hun/prototype/blob/main/prototypes/stream-vote/SPEC.md">GitHub</a>
+        </div>
+        <div class="meta">기획 @ · 디자인 @ · 개발 @</div>
       </li></ul>
   </main>
 </body>
