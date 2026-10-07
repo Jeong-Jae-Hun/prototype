@@ -20,6 +20,7 @@
         { id: "home", label: "홈", icon: "⌂", href: "../" },
         { id: "club", label: "모임", icon: "☕", slugs: ["book-club"] },
         { id: "challenge", label: "챌린지", icon: "✓", slugs: ["reading-challenge"] },
+        { id: "quiz", label: "퀴즈", icon: "?", slugs: ["book-quiz"] },
         { id: "me", label: "내 서재", icon: "♡", href: "#" },
       ],
     },
@@ -28,6 +29,7 @@
       nav: [
         { id: "dashboard", label: "대시보드", icon: "▦", href: "../" },
         { id: "club", label: "모임 운영", icon: "☕", slugs: ["book-club"] },
+        { id: "quiz", label: "퀴즈", icon: "?", slugs: ["book-quiz"] },
         { id: "store", label: "내 서점", icon: "▤", href: "#" },
       ],
     },
