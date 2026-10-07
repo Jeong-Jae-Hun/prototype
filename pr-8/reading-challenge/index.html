@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>독서 챌린지</title>
+  <script src="../design-system/theme.js" data-brands="reader"></script>
+  <link rel="stylesheet" href="../design-system/tokens.css">
+  <link rel="stylesheet" href="../design-system/components.css">
+  <script src="../app-structure/shell.js" data-active="reading-challenge" defer></script>
+  <style>
+    main { max-width: 720px; margin: 0 auto; padding: var(--ds-space-5) var(--ds-space-4); display: flex; flex-direction: column; gap: var(--ds-space-3); }
+    h1 { margin: 0; font-size: var(--ds-font-size-xl); }
+    .sub { color: var(--ds-color-sub); font-size: var(--ds-font-size-sm); margin: 0; }
+    .row { display: flex; justify-content: space-between; align-items: center; gap: var(--ds-space-3); }
+    form { display: grid; gap: var(--ds-space-3); }
+    ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ds-space-2); }
+  </style>
+</head>
+<body>
+  <div id="view">
+    <a href="../">← 목록</a>
+    <a href="../spec.html?slug=reading-challenge">명세 읽기</a>
+    <label>상태 <select id="state"></select></label>
+  </div>
+
+  <main id="app"></main>
+
+  <script>
+    // 숫자는 여기 한 곳 — SPEC.md 「숫자」 절과 같은 값.
+    const NUM = { goal: 3, reward: 300, minReview: 10 };
+    const STATES = { joined: "진행 중", done: "달성", ended: "기간 종료(미달성)" };
+    const view = { state: "joined", screen: "home" };
+    const seed = { joined: ["아몬드"], done: ["아몬드", "불편한 편의점", "달러구트 꿈 백화점"], ended: ["아몬드"] };
+    let books = [...seed.joined];
+    const app = document.getElementById("app");
+
+    const progress = () => `
+      <div class="row"><strong>${books.length} / ${NUM.goal}권</strong><span class="sub">달성하면 ${NUM.reward}P</span></div>
+      <div class="ds-progress"><span style="width:${Math.min(100, (books.length / NUM.goal) * 100)}%"></span></div>`;
+
+    const SCREENS = {
+      home: () => `
+        <h1>10월 챌린지 · 한 달에 ${NUM.goal}권</h1>
+        <p class="sub">10월 1일 ~ 10월 31일</p>
+        <div class="ds-card">${progress()}</div>
+        <ul>${books.map((b) => `<li class="ds-card row"><span>${b}</span><span class="ds-tag ds-tag--success">인증</span></li>`).join("")}</ul>
+        ${view.state === "ended"
+          ? `<p class="ds-notice">기간이 끝났어요. 다음 달 챌린지에 다시 도전해 보세요.</p>`
+          : books.length >= NUM.goal
+            ? `<div class="ds-card"><strong>달성했어요!</strong><p class="sub">${NUM.reward}P는 기간이 끝나고 검수 뒤 한 번에 들어와요.</p></div>`
+            : `<button class="ds-btn ds-btn--primary ds-btn--block" data-go="certify">다 읽은 책 인증하기</button>`}`,
+      certify: () => `
+        <h1>다 읽은 책 인증</h1>
+        <form class="ds-card">
+          <label class="ds-field">책 제목<input class="ds-input" name="title" value="불편한 편의점"></label>
+          <label class="ds-field">한 줄 감상
+            <input class="ds-input" name="review" value="밤의 편의점이 이렇게 따뜻할 줄이야">
+            <span class="ds-field__hint">${NUM.minReview}자 이상 · 기본은 나만 보기</span>
+          </label>
+          <button type="button" class="ds-btn ds-btn--primary" data-act="save">인증하기</button>
+        </form>`,
+    };
+
+    const render = () => { app.innerHTML = SCREENS[view.screen](); };
+    app.addEventListener("click", (e) => {
+      const t = e.target.closest("[data-go], [data-act]");
+      if (!t) return;
+      if (t.dataset.act === "save") {
+        const title = app.querySelector("[name=title]").value.trim();
+        if (title && !books.includes(title)) books.push(title);
+        view.screen = "home";
+      } else view.screen = t.dataset.go;
+      render();
+    });
+    state.innerHTML = Object.entries(STATES).map(([v, t]) => `<option value="${v}">${t}</option>`).join("");
+    state.onchange = () => { view.state = state.value; books = [...seed[view.state]]; view.screen = "home"; render(); };
+    render();
+  </script>
+</body>
+</html>

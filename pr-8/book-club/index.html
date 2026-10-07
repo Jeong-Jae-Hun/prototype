@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>북클럽 모임</title>
+  <script src="../design-system/theme.js" data-brands="reader partner"></script>
+  <link rel="stylesheet" href="../design-system/tokens.css">
+  <link rel="stylesheet" href="../design-system/components.css">
+  <script src="../app-structure/shell.js" data-active="book-club" defer></script>
+  <style>
+    main { max-width: 720px; margin: 0 auto; padding: var(--ds-space-5) var(--ds-space-4); display: flex; flex-direction: column; gap: var(--ds-space-3); }
+    h1 { margin: 0; font-size: var(--ds-font-size-xl); }
+    .row { display: flex; justify-content: space-between; align-items: center; gap: var(--ds-space-3); }
+    .sub { color: var(--ds-color-sub); font-size: var(--ds-font-size-sm); }
+    .card h2 { margin: 0 0 var(--ds-space-1); font-size: var(--ds-font-size-lg); }
+    dl { display: grid; grid-template-columns: auto 1fr; gap: var(--ds-space-2) var(--ds-space-4); margin: 0; }
+    dt { color: var(--ds-color-sub); }
+    dd { margin: 0; text-align: right; font-weight: 600; }
+    form { display: grid; gap: var(--ds-space-3); }
+    ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ds-space-2); }
+  </style>
+</head>
+<body>
+  <div id="view">
+    <a href="../">← 목록</a>
+    <a href="../spec.html?slug=book-club">명세 읽기</a>
+    <label>상태 <select id="state"></select></label>
+  </div>
+
+  <main id="app"></main>
+
+  <script>
+    // 숫자는 여기 한 곳 — SPEC.md 「숫자」 절과 같은 값.
+    const NUM = { fee: 5000, capacity: 12, balance: 18000, cancelHours: 48 };
+    const STATES = { open: "모집 중", full: "정원 마감" };
+    const view = { state: "open", screen: "list" };
+    const club = { title: "『작은 것들의 신』 함께 읽기", store: "골목서점", date: "10월 25일 (토) 오후 3시" };
+    const seated = () => (view.state === "full" ? NUM.capacity : 9);
+    const won = (n) => `${n.toLocaleString("ko-KR")}P`;
+    const app = document.getElementById("app");
+
+    // ─── 책숲 (독자) ───
+    const reader = {
+      list: () => `
+        <h1>이번 달 모임</h1>
+        <article class="ds-card">
+          <h2>${club.title}</h2>
+          <p class="sub">${club.store} · ${club.date}</p>
+          <div class="row"><span class="ds-tag ds-tag--brand">${seated()} / ${NUM.capacity}명</span>
+            <button class="ds-btn ds-btn--primary" data-go="confirm">${view.state === "full" ? "대기 등록" : "신청하기"}</button></div>
+        </article>`,
+      confirm: () => `
+        <h1>${view.state === "full" ? "대기 등록" : "신청 확인"}</h1>
+        <div class="ds-card"><dl>
+          <dt>참가비</dt><dd>${won(NUM.fee)}</dd>
+          <dt>내 포인트</dt><dd>${won(NUM.balance)}</dd>
+          <dt>신청 후</dt><dd>${won(NUM.balance - NUM.fee)}</dd>
+        </dl></div>
+        <p class="ds-notice">${view.state === "full" ? "자리가 나면 순서대로 자동 신청되고 그때 차감돼요." : `모임 ${NUM.cancelHours}시간 전까지 취소하면 전액 돌려드려요.`}</p>
+        <button class="ds-btn ds-btn--primary ds-btn--block" data-go="done">${view.state === "full" ? "대기 등록하기" : `${won(NUM.fee)} 내고 신청`}</button>`,
+      done: () => `
+        <div class="ds-empty">
+          <h1>${view.state === "full" ? "대기 1번이에요" : "신청했어요"}</h1>
+          <p>${club.store} · ${club.date}</p>
+          <button class="ds-btn" data-go="list">취소하기</button>
+        </div>`,
+    };
+
+    // ─── 책숲 파트너 (사장님) ───
+    const partner = {
+      list: () => `
+        <div class="row"><h1>모임 운영</h1><button class="ds-btn ds-btn--primary" data-go="create">모임 열기</button></div>
+        <article class="ds-card">
+          <h2>${club.title}</h2>
+          <p class="sub">${club.date} · ${seated()} / ${NUM.capacity}명</p>
+          <button class="ds-btn ds-btn--sm" data-go="roster">신청자 보기</button>
+        </article>`,
+      create: () => `
+        <h1>모임 열기</h1>
+        <form class="ds-card">
+          <label class="ds-field">책<input class="ds-input" value="작은 것들의 신"></label>
+          <label class="ds-field">날짜<input class="ds-input" value="2026-10-25 15:00"></label>
+          <label class="ds-field">정원<input class="ds-input" type="number" value="${NUM.capacity}"></label>
+          <label class="ds-field">참가비 (포인트)<input class="ds-input" type="number" value="${NUM.fee}"></label>
+          <button type="button" class="ds-btn ds-btn--primary" data-go="list">열기</button>
+        </form>`,
+      roster: () => `
+        <h1>신청자 ${seated()}명</h1>
+        <p class="sub">닉네임만 보여요. 현장에선 신청 번호로 확인해요.</p>
+        <ul>${["책벌레", "오후세시", "느린독서", "밑줄긋기"].map((n, i) => `
+          <li class="ds-card row"><span>#${101 + i} ${n}</span><label><input type="checkbox"> 출석</label></li>`).join("")}</ul>`,
+    };
+
+    const render = () => {
+      const screens = document.documentElement.dataset.brand === "partner" ? partner : reader;
+      app.innerHTML = (screens[view.screen] ?? screens.list)();
+    };
+    app.addEventListener("click", (e) => {
+      const go = e.target.closest("[data-go]")?.dataset.go;
+      if (go) { view.screen = go; render(); }
+    });
+    state.innerHTML = Object.entries(STATES).map(([v, t]) => `<option value="${v}">${t}</option>`).join("");
+    state.onchange = () => { view.state = state.value; view.screen = "list"; render(); };
+    document.addEventListener("ds:change", () => { view.screen = "list"; render(); });
+    render();
+  </script>
+</body>
+</html>
