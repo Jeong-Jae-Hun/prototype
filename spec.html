@@ -41,13 +41,18 @@
       document.getElementById("open").href = `./${slug}/`;
       document.getElementById("source").href = `https://github.com/Jeong-Jae-Hun/prototype/blob/main/prototypes/${slug}/SPEC.md`;
       fetch(`./${slug}/SPEC.md`, { cache: "no-cache" })
-        .then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))))
+        .then((r) => (r.ok ? r.text() : Promise.reject(r.status)))
         .then((md) => {
           doc.innerHTML = DOMPurify.sanitize(marked.parse(md));
           doc.querySelectorAll("table").forEach((t) => t.outerHTML = `<div class="table">${t.outerHTML}</div>`);
           document.title = `명세 — ${doc.querySelector("h1")?.textContent ?? slug}`;
         })
-        .catch(() => { doc.innerHTML = '<p class="error">명세를 불러오지 못했어요. 새로고침하거나 GitHub에서 보세요.</p>'; });
+        // 404 = 그 프로토타입이 없다(지워졌거나 주소가 틀림). 그 밖(네트워크 등)만 "다시 시도"로 안내한다 — 둘을 같은 문구로 두면 없는 걸 계속 새로고침하게 된다.
+        .catch((status) => {
+          doc.innerHTML = status === 404
+            ? `<p class="error">「${slug}」 명세가 없어요. 지워졌거나 주소가 바뀌었어요.</p><p><a href="./">목록에서 다시 고르기</a></p>`
+            : '<p class="error">명세를 불러오지 못했어요. 새로고침하거나 GitHub에서 보세요.</p>';
+        });
     }
   </script>
 </body>
