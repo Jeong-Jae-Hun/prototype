@@ -14,11 +14,11 @@
 
 ```
 prototypes/<slug>/
-  SPEC.md       명세 — 정본. prototypes/_template/SPEC.md 를 복사해서 시작한다
+  SPEC.md       명세 — 정본. prototypes/_templates/feature/SPEC.md 를 복사해서 시작한다
   index.html    프로토타입 진입점 (빌드 없음. CSS·JS·이미지는 같은 폴더에 둔다)
 ```
 
-- `<slug>`는 kebab-case. `_`로 시작하는 폴더(`_template`)는 미리보기와 목록에서 빠진다.
+- `<slug>`는 kebab-case. `_`로 시작하는 폴더(`_templates`)는 미리보기와 목록에서 빠진다.
 - 프레임워크·빌드 도구를 들이지 않는다. CDN 스크립트는 써도 된다.
 - **실데이터를 넣지 않는다.** 이 레포와 미리보기는 공개다. 가짜 이름·가짜 숫자만 쓴다.
 
@@ -26,7 +26,7 @@ prototypes/<slug>/
 
 Claude Code에서는 `/prototype <slug> <한 줄 설명>`이 1~3을, `/prototype-pr`이 4를 밟는다.
 
-1. **시작** — `git switch -c proto/<slug> origin/main` → `cp -r prototypes/_template prototypes/<slug>`
+1. **시작** — `git switch -c proto/<slug> origin/main` → `cp -r prototypes/_templates/feature prototypes/<slug>`
 2. **화면** — 정상 시나리오 하나를 처음부터 끝까지 클릭으로 따라갈 수 있게 만든다.
 3. **명세** — 화면을 다 만든 뒤 "이 화면에서 안 보이는 규칙이 뭔가"를 묻고 `SPEC.md`를 채운다.
 4. **PR** — 커밋 `feat: <기능> 프로토타입`. PR 본문에 확인받고 싶은 결정과 남은 질문을 적는다. 미리보기 링크는 워크플로가 단다.
@@ -46,7 +46,7 @@ Claude Code에서는 `/prototype <slug> <한 줄 설명>`이 1~3을, `/prototype
 
 ### 명세 규칙
 
-형식은 `prototypes/_template/SPEC.md` 하나다 — **결정 · 권한 · 상태 변화 · 숫자 · 남은 질문** 순서. 바꾸지 않는다.
+형식은 `prototypes/_templates/feature/SPEC.md` 하나다 — **결정 · 권한 · 상태 변화 · 숫자 · 남은 질문** 순서. 바꾸지 않는다.
 
 확정 조건은 셋이다. 하나라도 빠지면 Approve 하지 않는다.
 
