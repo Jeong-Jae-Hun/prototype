@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>프로토타입 — PR #7 미리보기</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <style>
+    body { margin: 0; font-family: Pretendard, system-ui, sans-serif; background: #0b0b10; color: #f4f4f6; letter-spacing: -0.01em; }
+    main { max-width: 760px; margin: 0 auto; padding: 32px 16px; }
+    h1 { font-size: 24px; margin: 0 0 4px; }
+    p { color: #9a9aab; margin: 0 0 24px; font-size: 14px; }
+    ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+    li { border: 1px solid #262633; border-radius: 16px; padding: 14px 16px; background: #15151d; }
+    a { color: inherit; }
+    .open { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; text-decoration: none; }
+    .title { font-weight: 700; flex: 1 1 200px; }
+    .slug, .meta { color: #9a9aab; font-size: 13px; }
+    .meta { margin-top: 6px; }
+    .status { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #2d2d3a; color: #c4c4d0; }
+    .status[data-status="확정"] { background: rgba(80, 200, 140, 0.18); color: #8fe3b8; }
+    .status[data-status="검토 중"] { background: rgba(137, 86, 251, 0.2); color: #d0bdff; }
+    .empty { color: #9a9aab; }
+    .links { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+    .btn { display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; border-radius: 12px; background: #23232e; text-decoration: none; font-size: 14px; }
+    .sub { color: #9a9aab; font-size: 13px; }
+    h2 { font-size: 17px; margin: 28px 0 4px; }
+    .brands { display: flex; gap: 6px; margin-top: 8px; }
+    .brand { font-size: 12px; padding: 2px 8px; border-radius: 6px; border: 1px solid #33333f; color: #c4c4d0; }
+    .shots { display: inline-flex; margin: 0 0 8px; padding: 10px 14px; border-radius: 12px; background: #23232e; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>프로토타입 · PR #7 미리보기</h1>
+    <p>화면은 버리는 프로토타입이고, 규칙은 명세가 정본이다. 둘이 어긋나면 명세가 맞다. 처음이면 <a href="https://github.com/Jeong-Jae-Hun/prototype#readme">사용법</a>부터.</p>
+    <a class="shots" href="_shots/">화면 비교 — main 과 무엇이 달라졌나</a>
+    <section><h2>기반</h2><p>디자인 시스템과 앱 구조. 이걸 바꾸면 아래 모든 기능 화면이 따라 바뀐다.</p><ul>
+      <li>
+        <a class="open" href="design-system/">
+          <span class="status" data-status="검토 중">검토 중</span>
+          <span class="title">디자인 시스템 기준선 — 두 층 토큰과 공용 컴포넌트</span>
+          <span class="slug">design-system</span>
+        </a>
+        <div class="brands"><span class="brand">책숲</span><span class="brand">책숲 파트너</span></div>
+        <div class="links">
+          <a class="btn" href="design-system/">화면 보기</a>
+          <a class="btn" href="spec.html?slug=design-system">명세 읽기</a>
+          <a class="sub" href="https://github.com/Jeong-Jae-Hun/prototype/blob/8b0c29ea3c2ccc3584020eabf29f824c4e8d66bc/prototypes/design-system/SPEC.md">GitHub</a>
+        </div>
+        <div class="meta">디자인 @ · 개발(디자인 시스템) @ · 기획 @</div>
+      </li>
+      <li>
+        <a class="open" href="app-structure/">
+          <span class="status" data-status="확정">확정</span>
+          <span class="title">앱 구조 — 독자 앱과 파트너 앱의 탭 기준선</span>
+          <span class="slug">app-structure</span>
+        </a>
+        <div class="brands"><span class="brand">책숲</span><span class="brand">책숲 파트너</span></div>
+        <div class="links">
+          <a class="btn" href="app-structure/">화면 보기</a>
+          <a class="btn" href="spec.html?slug=app-structure">명세 읽기</a>
+          <a class="sub" href="https://github.com/Jeong-Jae-Hun/prototype/blob/8b0c29ea3c2ccc3584020eabf29f824c4e8d66bc/prototypes/app-structure/SPEC.md">GitHub</a>
+        </div>
+        <div class="meta">기획 @ · 디자인 @ · 개발 @</div>
+      </li></ul></section><section><h2>기능</h2><p>기능 하나 = 프로토타입 하나.</p><ul>
+      <li>
+        <a class="open" href="book-club/">
+          <span class="status" data-status="초안">초안</span>
+          <span class="title">북클럽 모임 — 서점이 열고 독자가 신청한다</span>
+          <span class="slug">book-club</span>
+        </a>
+        <div class="brands"><span class="brand">책숲</span><span class="brand">책숲 파트너</span></div>
+        <div class="links">
+          <a class="btn" href="book-club/">화면 보기</a>
+          <a class="btn" href="spec.html?slug=book-club">명세 읽기</a>
+          <a class="sub" href="https://github.com/Jeong-Jae-Hun/prototype/blob/8b0c29ea3c2ccc3584020eabf29f824c4e8d66bc/prototypes/book-club/SPEC.md">GitHub</a>
+        </div>
+        <div class="meta">기획 @ · 디자인 @ · 개발 @</div>
+      </li>
+      <li>
+        <a class="open" href="reading-challenge/">
+          <span class="status" data-status="초안">초안</span>
+          <span class="title">독서 챌린지 — 한 달에 정한 권수를 읽고 인증하면 포인트를 받는다</span>
+          <span class="slug">reading-challenge</span>
+        </a>
+        <div class="brands"><span class="brand">책숲</span></div>
+        <div class="links">
+          <a class="btn" href="reading-challenge/">화면 보기</a>
+          <a class="btn" href="spec.html?slug=reading-challenge">명세 읽기</a>
+          <a class="sub" href="https://github.com/Jeong-Jae-Hun/prototype/blob/8b0c29ea3c2ccc3584020eabf29f824c4e8d66bc/prototypes/reading-challenge/SPEC.md">GitHub</a>
+        </div>
+        <div class="meta">기획 @ · 디자인 @ · 개발 @</div>
+      </li></ul></section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,141 @@
+/*
+ * 디자인 토큰 — 모든 프로토타입이 이 파일 하나를 가져다 쓴다.
+ * 이 값을 바꾸는 PR 은 미리보기에서 **모든 화면**이 새 값으로 다시 그려진다.
+ *
+ * 두 층이다.
+ *   1. 기초 토큰 (:root)          — 간격·모서리·글자. 브랜드·테마와 무관하다.
+ *   2. 의미 토큰 (브랜드 × 테마)  — 색. <html data-brand="reader|partner" data-theme="light|dark"> 로 갈린다.
+ *      design-system/theme.js 가 그 두 속성을 붙이고, 보기 전환 바에 고르는 칸을 만든다.
+ *
+ * 브랜드: reader = 책숲(독자 앱, 숲 초록) · partner = 책숲 파트너(서점 사장님 앱, 남색).
+ *         같은 컴포넌트, 다른 색. 프로토타입은 hex 를 직접 쓰지 않고 --ds-color-* 만 쓴다.
+ * 작은 글자(태그)는 *-text 토큰을 쓴다 — 라이트에서 기본 색은 옅은 바탕 위 12px 글자 대비가 4.5:1 에 못 미친다.
+ *
+ * ⚠️ 예시 레포의 사정: 실제로는 제품 레포의 디자인 시스템이 정본이고, 이 파일은 그 사본이다
+ *    (context/README.md 「동기화」). 여기서 바꾸는 것은 "제안"이고, 확정되면 제품 레포에 반영한다.
+ */
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
+
+/* ─── 1. 기초 토큰 ─── */
+:root {
+  --ds-radius-xs: 6px;   /* 뱃지·칩 */
+  --ds-radius-sm: 10px;  /* 입력·썸네일 */
+  --ds-radius-md: 14px;
+  --ds-radius-lg: 18px;  /* 카드 */
+  --ds-radius-pill: 999px;
+
+  --ds-space-1: 4px;
+  --ds-space-2: 8px;
+  --ds-space-3: 12px;
+  --ds-space-4: 16px;
+  --ds-space-5: 24px;
+  --ds-space-6: 32px;
+
+  --ds-font: Pretendard, system-ui, sans-serif;
+  --ds-font-size-sm: 13px;
+  --ds-font-size-md: 15px;
+  --ds-font-size-lg: 18px;
+  --ds-font-size-xl: 24px;
+  --ds-tracking: -0.01em;
+  --ds-tracking-display: -0.02em;
+
+  --ds-tap: 44px;          /* 주요 버튼 최소 높이 */
+  --ds-shell-top: 52px;    /* app-structure/shell.js 상단 바 */
+  --ds-shell-bottom: 60px; /* 모바일 하단 탭 바 */
+  --ds-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+}
+
+/* ─── 2. 의미 토큰 — 브랜드 × 테마 ─── */
+
+/* 책숲 · 라이트 (속성이 없을 때의 기본값) — 종이 같은 바탕 */
+:root,
+[data-brand="reader"][data-theme="light"] {
+  color-scheme: light;
+  --ds-color-bg: #faf8f3;
+  --ds-color-surface: #ffffff;
+  --ds-color-surface-2: #f1ede4;
+  --ds-color-line: #e4ded1;
+  --ds-color-text: #1d1b16;
+  --ds-color-sub: #6f6a5f;
+  --ds-color-placeholder: #e2dccf;
+  --ds-color-brand: #2f7d5b;
+  --ds-color-brand-hover: #276a4d;
+  --ds-color-on-brand: #ffffff;
+  --ds-color-brand-soft: rgba(47, 125, 91, 0.12);
+  --ds-color-brand-text: #23654a;
+  --ds-color-mine: #e4f1ea;
+  --ds-color-danger: #c4382c;
+  --ds-color-success: #3a7d24;
+  --ds-color-success-text: #24611a;
+  --ds-color-danger-text: #a32a20;
+  --ds-color-warning: #a8670a;
+}
+
+/* 책숲 · 다크 */
+[data-brand="reader"][data-theme="dark"] {
+  color-scheme: dark;
+  --ds-color-bg: #111513;
+  --ds-color-surface: #1a201c;
+  --ds-color-surface-2: #232b26;
+  --ds-color-line: #2e3832;
+  --ds-color-text: #eef3ef;
+  --ds-color-sub: #98a59c;
+  --ds-color-placeholder: #34403a;
+  --ds-color-brand: #4cbf8c;
+  --ds-color-brand-hover: #3faa7a;
+  --ds-color-on-brand: #06140d;
+  --ds-color-brand-soft: rgba(76, 191, 140, 0.16);
+  --ds-color-brand-text: #9fe0bf;
+  --ds-color-mine: #1f3a2d;
+  --ds-color-danger: #ff7b6e;
+  --ds-color-success: #6fdcaa;
+  --ds-color-success-text: var(--ds-color-success);
+  --ds-color-danger-text: var(--ds-color-danger);
+  --ds-color-warning: #f2c46b;
+}
+
+/* 책숲 파트너 · 라이트 — 업무용이라 차분한 남색 */
+[data-brand="partner"][data-theme="light"] {
+  color-scheme: light;
+  --ds-color-bg: #f6f7fb;
+  --ds-color-surface: #ffffff;
+  --ds-color-surface-2: #eceff7;
+  --ds-color-line: #dde1ec;
+  --ds-color-text: #141823;
+  --ds-color-sub: #5f6678;
+  --ds-color-placeholder: #d9deea;
+  --ds-color-brand: #3b5bdb;
+  --ds-color-brand-hover: #3049b8;
+  --ds-color-on-brand: #ffffff;
+  --ds-color-brand-soft: rgba(59, 91, 219, 0.1);
+  --ds-color-brand-text: #2c47b0;
+  --ds-color-mine: #e6ecff;
+  --ds-color-danger: #c92a3a;
+  --ds-color-success: #1d7f56;
+  --ds-color-success-text: #16613f;
+  --ds-color-danger-text: #a3202e;
+  --ds-color-warning: #a8670a;
+}
+
+/* 책숲 파트너 · 다크 */
+[data-brand="partner"][data-theme="dark"] {
+  color-scheme: dark;
+  --ds-color-bg: #0f1218;
+  --ds-color-surface: #171b24;
+  --ds-color-surface-2: #20263a;
+  --ds-color-line: #2a3145;
+  --ds-color-text: #edf0f7;
+  --ds-color-sub: #98a0b3;
+  --ds-color-placeholder: #2f364b;
+  --ds-color-brand: #6f8cff;
+  --ds-color-brand-hover: #5b7cfa;
+  --ds-color-on-brand: #0b1020;
+  --ds-color-brand-soft: rgba(111, 140, 255, 0.16);
+  --ds-color-brand-text: #b3c3ff;
+  --ds-color-mine: #1e2a4a;
+  --ds-color-danger: #ff7b86;
+  --ds-color-success: #6fdcaa;
+  --ds-color-success-text: var(--ds-color-success);
+  --ds-color-danger-text: var(--ds-color-danger);
+  --ds-color-warning: #f2c46b;
+}
